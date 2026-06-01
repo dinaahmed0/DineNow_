@@ -1,0 +1,36 @@
+import { getRolesFromToken } from './jwt-claims';
+
+export const USER_ROLES = {
+  superAdmin: ['SuperAdmin', 'Admin', 'Administrator'],
+  manager: ['Manager', 'Owner', 'RestaurantOwner', 'RestaurantManager'],
+  staff: ['Staff', 'Employee', 'Waiter'],
+} as const;
+
+function matchesRole(userRole: string, allowed: readonly string[]): boolean {
+  const normalized = userRole.toLowerCase();
+  return allowed.some((r) => r.toLowerCase() === normalized);
+}
+
+export function hasAnyRole(token: string, allowed: readonly string[]): boolean {
+  const roles = getRolesFromToken(token);
+  if (roles.length === 0) return false;
+  return roles.some((r) => matchesRole(r, allowed));
+}
+
+export function isSuperAdmin(token: string): boolean {
+  return hasAnyRole(token, USER_ROLES.superAdmin);
+}
+
+export function isManager(token: string): boolean {
+  return hasAnyRole(token, USER_ROLES.manager);
+}
+
+export function isStaff(token: string): boolean {
+  return hasAnyRole(token, USER_ROLES.staff);
+}
+
+export function getPrimaryRoleLabel(token: string): string {
+  const roles = getRolesFromToken(token);
+  if (roles.length === 0) return 'User';
+  return roles[0];
+}

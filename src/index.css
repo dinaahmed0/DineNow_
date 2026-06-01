@@ -1,0 +1,71 @@
+@import "tailwindcss";
+@import "flowbite";
+@import "slick-carousel/slick/slick.css";
+
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+@theme {
+  --color-emerald-50: #6B8A62;
+  --color-emerald-100: #6B8A62;
+  --color-emerald-200: #6B8A62;
+  --color-emerald-300: #6B8A62;
+  --color-emerald-400: #6B8A62;
+  --color-emerald-500: #6B8A62;
+  --color-emerald-600: #6B8A62;  /* ← Your background */
+  --color-emerald-700: #6B8A62;
+  --color-emerald-800: #6B8A62;
+  --color-emerald-900: #6B8A62;
+}
+
+
+@font-face {
+  font-family: 'slick';
+  src: url('/slick-fonts/slick.eot');
+  src: url('/slick-fonts/slick.eot?#iefix') format('embedded-opentype'),
+       url('/slick-fonts/slick.woff') format('woff'),
+       url('/slick-fonts/slick.ttf') format('truetype'),
+       url('/slick-fonts/slick.svg#slick') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@import "slick-carousel/slick/slick-theme.css";
+
+
+
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #1f2937;
+  background-color: #f9fafb;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Custom spinner animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
