@@ -1,160 +1,58 @@
-import { useState, useMemo, useCallback, type FC } from 'react';
+import { useState, useMemo, useCallback, useEffect, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaStar, FaMapMarkerAlt, FaSearch, FaTimes, FaHeart, FaRegHeart, FaInfoCircle, FaPhoneAlt, FaClock } from 'react-icons/fa';
 import { MdRestaurant, MdLocalCafe } from 'react-icons/md';
 import { Card, Button, Badge, TextInput } from 'flowbite-react';
 import ProtectedButton from '../auth/ProtectedButton';
+import { getAllRestaurants } from '../../services/restaurant';
+import type { ReturnRestaurantQuery } from '../../types/restaurant';
 
-// Enhanced mock data with more details and realistic images
-const mockSpots = [
-  // Restaurants
-  {
-    id: 1,
-    name: "The Gourmet Kitchen",
-    type: "restaurant",
-    cuisine: "Italian",
-    rating: 4.8,
-    reviewCount: 342,
-    priceRange: "$$$",
-    location: "Downtown",
-    address: "123 Culinary Ave, Downtown",
-    phone: "(555) 123-4567",
-    hours: "11:00 AM - 10:00 PM",
-    website: "www.gourmetkitchen.com",
-    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=400&fit=crop",
-    description: "Fine dining Italian restaurant with authentic pasta and wood-fired pizzas. Our chefs use only the freshest ingredients imported directly from Italy.",
-    features: ["Outdoor Seating", "Wine Bar", "Private Events"]
-  },
-  {
-    id: 2,
-    name: "Sushi Master",
-    type: "restaurant",
-    cuisine: "Japanese",
-    rating: 4.9,
-    reviewCount: 528,
-    priceRange: "$$$",
-    location: "Midtown",
-    address: "456 Sushi Lane, Midtown",
-    phone: "(555) 234-5678",
-    hours: "12:00 PM - 9:30 PM",
-    website: "www.sushimaster.com",
-    image: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=600&h=400&fit=crop",
-    description: "Fresh sushi and traditional Japanese dishes. Experience the art of omakase from our master chefs with 20+ years of experience.",
-    features: ["Omakase", "Sake Bar", "Private Rooms"]
-  },
-  {
-    id: 3,
-    name: "Burger House",
-    type: "restaurant",
-    cuisine: "American",
-    rating: 4.5,
-    reviewCount: 891,
-    priceRange: "$$",
-    location: "West End",
-    address: "789 Burger Blvd, West End",
-    phone: "(555) 345-6789",
-    hours: "11:00 AM - 11:00 PM",
-    website: "www.burgerhouse.com",
-    image: "https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=600&h=400&fit=crop",
-    description: "Gourmet burgers and craft beers. Our patties are made from premium Angus beef and served on freshly baked brioche buns.",
-    features: ["Craft Beer", "Late Night", "Takeout"]
-  },
-  {
-    id: 4,
-    name: "Spice Garden",
-    type: "restaurant",
-    cuisine: "Indian",
-    rating: 4.7,
-    reviewCount: 267,
-    priceRange: "$$",
-    location: "East Side",
-    address: "321 Spice Rd, East Side",
-    phone: "(555) 456-7890",
-    hours: "11:30 AM - 9:30 PM",
-    website: "www.spicegarden.com",
-    image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&h=400&fit=crop",
-    description: "Authentic Indian curries and tandoori dishes. Our recipes have been passed down through generations.",
-    features: ["Vegan Options", "Gluten-Free", "Buffet"]
-  },
-  
-  // Cafes
-  {
-    id: 5,
-    name: "Starbucks Coffee",
-    type: "cafe",
-    specialty: "Coffee",
-    rating: 4.3,
-    reviewCount: 1256,
-    priceRange: "$$",
-    location: "Downtown",
-    address: "888 Coffee Way, Downtown",
-    phone: "(555) 567-8901",
-    hours: "6:00 AM - 8:00 PM",
-    website: "www.starbucks.com",
-    image: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&h=400&fit=crop",
-    description: "Premium coffee, pastries, and cozy atmosphere. Free WiFi and plenty of seating for remote work.",
-    features: ["Free WiFi", "Outdoor Seating", "Drive-Thru"]
-  },
-  {
-    id: 6,
-    name: "The Book Cafe",
-    type: "cafe",
-    specialty: "Tea & Coffee",
-    rating: 4.6,
-    reviewCount: 432,
-    priceRange: "$$",
-    location: "Midtown",
-    address: "456 Reading St, Midtown",
-    phone: "(555) 678-9012",
-    hours: "8:00 AM - 9:00 PM",
-    website: "www.bookcafe.com",
-    image: "https://images.unsplash.com/photo-1528605105345-5344ea20e269?w=600&h=400&fit=crop",
-    description: "Coffee shop with a library, perfect for reading. Over 1000 books available for customers to enjoy.",
-    features: ["Library", "Quiet Zone", "Board Games"]
-  },
-  {
-    id: 7,
-    name: "Artisan Bakery",
-    type: "cafe",
-    specialty: "Bakery",
-    rating: 4.7,
-    reviewCount: 578,
-    priceRange: "$",
-    location: "West End",
-    address: "789 Fresh Bread Ave, West End",
-    phone: "(555) 789-0123",
-    hours: "7:00 AM - 7:00 PM",
-    website: "www.artisanbakery.com",
-    image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&h=400&fit=crop",
-    description: "Fresh bread, pastries, and specialty coffee. Baked fresh daily using organic ingredients.",
-    features: ["Gluten-Free", "Vegan", "Take & Bake"]
-  },
-  {
-    id: 8,
-    name: "Green Leaf Cafe",
-    type: "cafe",
-    specialty: "Healthy",
-    rating: 4.4,
-    reviewCount: 312,
-    priceRange: "$$",
-    location: "East Side",
-    address: "234 Health St, East Side",
-    phone: "(555) 890-1234",
-    hours: "7:30 AM - 8:00 PM",
-    website: "www.greenleafcafe.com",
-    image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=600&h=400&fit=crop",
-    description: "Organic coffee and healthy breakfast options. All ingredients are locally sourced and organic.",
-    features: ["Organic", "Acai Bowls", "Cold Pressed Juices"]
-  }
-];
+interface Spot {
+  id: number;
+  name: string;
+  type: 'restaurant' | 'cafe';
+  cuisine?: string;
+  specialty?: string;
+  rating: number;
+  reviewCount: number;
+  priceRange: string;
+  location: string;
+  address: string;
+  phone: string;
+  hours: string;
+  website?: string;
+  image?: string;
+  description: string;
+  features: string[];
+}
 
-type Spot = (typeof mockSpots)[number];
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=400&fit=crop';
+
+function restaurantToSpot(r: ReturnRestaurantQuery): Spot {
+  return {
+    id: r.id,
+    name: r.name,
+    type: 'restaurant',
+    cuisine: r.cuisine || 'Restaurant',
+    rating: r.rating,
+    reviewCount: r.reviewCount,
+    priceRange: r.priceRange || '$$',
+    location: r.location || r.address || '',
+    address: r.address || '',
+    phone: r.phone || '',
+    hours: r.hours || '',
+    website: r.website,
+    image: r.image || DEFAULT_IMAGE,
+    description: r.description || '',
+    features: r.features || [],
+  };
+}
 
 function spotToReservationRestaurant(spot: Spot) {
   const cuisineLabel =
-    spot.type === 'restaurant' && 'cuisine' in spot && spot.cuisine
+    spot.type === 'restaurant' && spot.cuisine
       ? spot.cuisine
-      : spot.type === 'cafe' && 'specialty' in spot && spot.specialty
+      : spot.type === 'cafe' && spot.specialty
         ? `${spot.specialty} • Cafe`
         : spot.type === 'cafe'
           ? 'Cafe'
@@ -173,7 +71,7 @@ function spotToReservationRestaurant(spot: Spot) {
     address: spot.address,
     phone: spot.phone,
     hours: spot.hours,
-    features: 'features' in spot && Array.isArray(spot.features) ? spot.features : [],
+    features: spot.features,
   };
 }
 
@@ -188,10 +86,11 @@ const SpotCard: FC<SpotCardProps> = ({ spot, onClick, isFavorite, onFavoriteTogg
   <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
     <div className="relative h-48 overflow-hidden">
       <img
-        src={spot.image}
+        src={spot.image || DEFAULT_IMAGE}
         alt={spot.name}
         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         loading="lazy"
+        onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_IMAGE; }}
       />
       <div className={`absolute top-3 left-3 px-3 py-1 rounded-full text-white text-xs font-medium backdrop-blur-sm ${
         spot.type === 'restaurant' ? 'bg-red-700/90' : 'bg-yellow-800/90'
@@ -214,30 +113,30 @@ const SpotCard: FC<SpotCardProps> = ({ spot, onClick, isFavorite, onFavoriteTogg
         )}
       </Button>
     </div>
-    
+
     <div className="p-4">
       <div className="flex justify-between items-start mb-2">
         <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">{spot.name}</h3>
         <div className="flex items-center gap-1 bg-[#6B8A62]/10 px-2 py-0.5 rounded-full">
           <FaStar className="text-yellow-400 text-xs" />
-          <span className="text-sm font-medium text-gray-700">{spot.rating}</span>
+          <span className="text-sm font-medium text-gray-700">{spot.rating.toFixed(1)}</span>
           <span className="text-xs text-gray-500">({spot.reviewCount})</span>
         </div>
       </div>
-      
+
       <p className="text-gray-500 text-sm mb-2">
         {spot.type === 'restaurant' ? spot.cuisine : spot.specialty}
       </p>
-      
+
       <div className="flex items-center gap-2 text-gray-400 text-xs mb-3">
         <FaMapMarkerAlt className="text-[#6B8A62]" />
-        <span className="text-gray-500">{spot.location}</span>
+        <span className="text-gray-500 line-clamp-1">{spot.location}</span>
         <span className="text-gray-300">•</span>
         <span className="font-medium text-gray-600">{spot.priceRange}</span>
       </div>
-      
-      <p className="text-gray-600 text-sm line-clamp-2 mb-4">{spot.description}</p>
-      
+
+      <p className="text-gray-600 text-sm line-clamp-2 mb-4">{spot.description || spot.name}</p>
+
       <Button
         onClick={() => onClick(spot)}
         className="w-full bg-gradient-to-r from-[#6B8A62] to-[#5A7352] text-white py-2.5 rounded-lg hover:shadow-lg hover:scale-102 transition-all duration-300 font-semibold flex items-center justify-center gap-2 cursor-pointer"
@@ -258,20 +157,17 @@ interface SpotDetailModalProps {
 
 const SpotDetailModal: FC<SpotDetailModalProps> = ({ spot, onClose, isFavorite, onFavoriteToggle, onReserve }) => {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
-  
+
   if (!spot) return null;
-  
+
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
         onClick={onClose}
       />
-      
-      {/* Modal Container - 50% width on desktop, full on mobile */}
+
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[90%] md:max-w-[50%] lg:max-w-[45%] xl:max-w-[40%] max-h-[90vh] overflow-y-auto">
-        {/* Image Section with Loading State */}
         <div className="relative h-56 md:h-64 bg-gradient-to-br from-gray-100 to-gray-200">
           {!isImageLoaded && (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -279,13 +175,13 @@ const SpotDetailModal: FC<SpotDetailModalProps> = ({ spot, onClose, isFavorite, 
             </div>
           )}
           <img
-            src={spot.image}
+            src={spot.image || DEFAULT_IMAGE}
             alt={spot.name}
             className={`w-full h-full object-cover transition-opacity duration-300 ${isImageLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setIsImageLoaded(true)}
+            onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_IMAGE; setIsImageLoaded(true); }}
           />
-          
-          {/* Close Button */}
+
           <button
             onClick={onClose}
             className="absolute top-4 left-4 w-8 h-8 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-all hover:scale-105"
@@ -293,8 +189,7 @@ const SpotDetailModal: FC<SpotDetailModalProps> = ({ spot, onClose, isFavorite, 
           >
             <FaTimes className="text-sm" />
           </button>
-          
-          {/* Favorite Button */}
+
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -310,10 +205,8 @@ const SpotDetailModal: FC<SpotDetailModalProps> = ({ spot, onClose, isFavorite, 
             )}
           </button>
         </div>
-        
-        {/* Content Section */}
+
         <div className="p-5 md:p-6">
-          {/* Header */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
             <div className="flex-1">
               <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">
@@ -322,7 +215,7 @@ const SpotDetailModal: FC<SpotDetailModalProps> = ({ spot, onClose, isFavorite, 
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 <div className="flex items-center gap-1 bg-[#6B8A62]/10 px-2 py-0.5 rounded-md">
                   <FaStar className="text-yellow-400 text-xs" />
-                  <span className="text-sm font-semibold text-gray-800">{spot.rating}</span>
+                  <span className="text-sm font-semibold text-gray-800">{spot.rating.toFixed(1)}</span>
                   <span className="text-xs text-gray-500">({spot.reviewCount})</span>
                 </div>
                 <span className="text-gray-300">•</span>
@@ -332,51 +225,52 @@ const SpotDetailModal: FC<SpotDetailModalProps> = ({ spot, onClose, isFavorite, 
               </div>
             </div>
           </div>
-          
-          {/* Description */}
-          <p className="text-gray-600 text-sm leading-relaxed mb-5">
-            {spot.description}
-          </p>
-          
-          {/* Info Grid */}
+
+          {spot.description && (
+            <p className="text-gray-600 text-sm leading-relaxed mb-5">{spot.description}</p>
+          )}
+
           <div className="space-y-3 mb-5">
-            {/* Location */}
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-[#6B8A62]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FaMapMarkerAlt className="text-[#6B8A62] text-sm" />
-              </div>
-              <div className="flex-1">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Location</p>
-                <p className="text-sm font-medium text-gray-800">{spot.location}</p>
-                <p className="text-xs text-gray-500">{spot.address}</p>
-              </div>
-            </div>
-            
-            {/* Contact Row - Two items side by side */}
-            <div className="grid grid-cols-2 gap-3">
+            {spot.address && (
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 bg-[#6B8A62]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FaClock className="text-[#6B8A62] text-sm" />
+                  <FaMapMarkerAlt className="text-[#6B8A62] text-sm" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">Hours</p>
-                  <p className="text-sm text-gray-800">{spot.hours}</p>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">Location</p>
+                  <p className="text-sm font-medium text-gray-800">{spot.location}</p>
+                  <p className="text-xs text-gray-500">{spot.address}</p>
                 </div>
               </div>
+            )}
 
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-[#6B8A62]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FaPhoneAlt className="text-[#6B8A62] text-sm" />
+            <div className="grid grid-cols-2 gap-3">
+              {spot.hours && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-[#6B8A62]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FaClock className="text-[#6B8A62] text-sm" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Hours</p>
+                    <p className="text-sm text-gray-800">{spot.hours}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">Phone</p>
-                  <p className="text-sm text-gray-800 truncate">{spot.phone}</p>
+              )}
+
+              {spot.phone && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-[#6B8A62]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FaPhoneAlt className="text-[#6B8A62] text-sm" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Phone</p>
+                    <p className="text-sm text-gray-800 truncate">{spot.phone}</p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
-          
-          {/* Features */}
+
           {spot.features && spot.features.length > 0 && (
             <div className="mb-6">
               <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
@@ -384,8 +278,8 @@ const SpotDetailModal: FC<SpotDetailModalProps> = ({ spot, onClose, isFavorite, 
               </h4>
               <div className="flex flex-wrap gap-1.5">
                 {spot.features.map((feature, idx) => (
-                  <span 
-                    key={idx} 
+                  <span
+                    key={idx}
                     className="px-2.5 py-1 bg-gray-100 rounded-md text-xs text-gray-600 font-medium"
                   >
                     {feature}
@@ -394,8 +288,7 @@ const SpotDetailModal: FC<SpotDetailModalProps> = ({ spot, onClose, isFavorite, 
               </div>
             </div>
           )}
-          
-          {/* Action Buttons */}
+
           <div className="flex gap-3 pt-2 border-t border-gray-100">
             <ProtectedButton
               className="w-full bg-gradient-to-r from-[#6B8A62] to-[#5A7352] text-white py-2.5 rounded-lg hover:shadow-lg hover:scale-102 transition-all duration-300 font-semibold flex items-center justify-center gap-2 cursor-pointer"
@@ -417,8 +310,7 @@ const SpotDetailModal: FC<SpotDetailModalProps> = ({ spot, onClose, isFavorite, 
               Directions
             </Button>
           </div>
-          
-          {/* Quick Tip */}
+
           <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-100">
             <p className="text-xs text-amber-700 flex items-center gap-1.5">
               <span className="text-base">💡</span>
@@ -431,9 +323,24 @@ const SpotDetailModal: FC<SpotDetailModalProps> = ({ spot, onClose, isFavorite, 
   );
 };
 
+const SkeletonCard = () => (
+  <div className="bg-white rounded-xl shadow-md animate-pulse">
+    <div className="h-48 bg-gray-200 rounded-t-xl" />
+    <div className="p-4 space-y-3">
+      <div className="h-5 bg-gray-200 rounded w-3/4" />
+      <div className="h-4 bg-gray-200 rounded w-1/2" />
+      <div className="h-4 bg-gray-200 rounded w-full" />
+      <div className="h-9 bg-gray-200 rounded mt-2" />
+    </div>
+  </div>
+);
+
 // Main component
 export default function Spots() {
   const navigate = useNavigate();
+  const [spots, setSpots] = useState<Spot[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'restaurant' | 'cafe'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
@@ -441,43 +348,62 @@ export default function Spots() {
   const [priceFilter, setPriceFilter] = useState<'all' | '$' | '$$' | '$$$'>('all');
   const [ratingFilter, setRatingFilter] = useState<number>(0);
 
-  // Filter spots based on all criteria
-  const filteredSpots = useMemo(() => {
-    let spots = mockSpots;
-    
-    // Type filter
-    if (filterType !== 'all') {
-      spots = spots.filter(spot => spot.type === filterType);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchSpots() {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const result = await getAllRestaurants(1, 50);
+        if (!cancelled) {
+          setSpots(result.restaurants.filter(r => r.isActive).map(restaurantToSpot));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load restaurants');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
     }
-    
-    // Search filter
+
+    void fetchSpots();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredSpots = useMemo(() => {
+    let filtered = spots;
+
+    if (filterType !== 'all') {
+      filtered = filtered.filter(s => s.type === filterType);
+    }
+
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      spots = spots.filter(spot =>
-        spot.name.toLowerCase().includes(term) ||
-        (spot.cuisine && spot.cuisine.toLowerCase().includes(term)) ||
-        (spot.specialty && spot.specialty.toLowerCase().includes(term)) ||
-        spot.location.toLowerCase().includes(term) ||
-        spot.description.toLowerCase().includes(term)
+      filtered = filtered.filter(s =>
+        s.name.toLowerCase().includes(term) ||
+        (s.cuisine && s.cuisine.toLowerCase().includes(term)) ||
+        (s.specialty && s.specialty.toLowerCase().includes(term)) ||
+        s.location.toLowerCase().includes(term) ||
+        s.description.toLowerCase().includes(term)
       );
     }
-    
-    // Price filter
-    if (priceFilter !== 'all') {
-      spots = spots.filter(spot => spot.priceRange === priceFilter);
-    }
-    
-    // Rating filter
-    if (ratingFilter > 0) {
-      spots = spots.filter(spot => spot.rating >= ratingFilter);
-    }
-    
-    return spots;
-  }, [filterType, searchTerm, priceFilter, ratingFilter]);
 
-  const restaurantCount = mockSpots.filter(spot => spot.type === 'restaurant').length;
-  const cafeCount = mockSpots.filter(spot => spot.type === 'cafe').length;
-  
+    if (priceFilter !== 'all') {
+      filtered = filtered.filter(s => s.priceRange === priceFilter);
+    }
+
+    if (ratingFilter > 0) {
+      filtered = filtered.filter(s => s.rating >= ratingFilter);
+    }
+
+    return filtered;
+  }, [filterType, searchTerm, priceFilter, ratingFilter, spots]);
+
+  const restaurantCount = spots.filter(s => s.type === 'restaurant').length;
+  const cafeCount = spots.filter(s => s.type === 'cafe').length;
+
   const handleReserveFromSpot = useCallback(
     (spot: Spot) => {
       navigate('/reservation', { state: { restaurant: spotToReservationRestaurant(spot) } });
@@ -486,13 +412,13 @@ export default function Spots() {
   );
 
   const handleFavoriteToggle = useCallback((spotId: number) => {
-    setFavorites(prev => 
-      prev.includes(spotId) 
+    setFavorites(prev =>
+      prev.includes(spotId)
         ? prev.filter(id => id !== spotId)
         : [...prev, spotId]
     );
   }, []);
-  
+
   const clearAllFilters = () => {
     setFilterType('all');
     setSearchTerm('');
@@ -516,15 +442,14 @@ export default function Spots() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
-          Discover <span className="text-[#6B8A62]">Trending</span> Tables
-        </h1>
-        <p className="text-gray-500 text-base sm:text-lg max-w-3xl mx-auto">
-          Find the best restaurants and cafes in your area. Filter by type, price, and rating.
-        </p>
-      </div>
-
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+            Discover <span className="text-[#6B8A62]">Trending</span> Tables
+          </h1>
+          <p className="text-gray-500 text-base sm:text-lg max-w-3xl mx-auto">
+            Find the best restaurants and cafes in your area. Filter by type, price, and rating.
+          </p>
+        </div>
 
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* Left sidebar — filters */}
@@ -564,8 +489,8 @@ export default function Spots() {
                           <FaInfoCircle className="text-sm" />
                           All spots
                         </span>
-                        <Badge color={filterType === 'all' ? 'gray' : 'gray'} className={filterType === 'all' ? 'bg-white/20 text-white' : ''}>
-                          {mockSpots.length}
+                        <Badge color="gray" className={filterType === 'all' ? 'bg-white/20 text-white' : ''}>
+                          {spots.length}
                         </Badge>
                       </button>
                       <button type="button" onClick={() => setFilterType('restaurant')} className={filterButtonClass(filterType === 'restaurant')}>
@@ -645,19 +570,16 @@ export default function Spots() {
 
           {/* Main content — results */}
           <main className="flex-1 min-w-0">
-            <div className="flex flex-wrap justify-end items-center gap-3 mb-6">
-              <p className="text-gray-500 text-sm">
-                Showing <span className="font-semibold text-gray-800">{filteredSpots.length}</span> of{' '}
-                <span className="font-semibold text-gray-800">{mockSpots.length}</span> spots
-              </p>
-              {/* {favorites.length > 0 && (
-                <p className="text-sm text-[#6B8A62] font-medium">
-                  {favorites.length} favorite{favorites.length !== 1 ? 's' : ''}
+            {!isLoading && !error && (
+              <div className="flex flex-wrap justify-end items-center gap-3 mb-6">
+                <p className="text-gray-500 text-sm">
+                  Showing <span className="font-semibold text-gray-800">{filteredSpots.length}</span> of{' '}
+                  <span className="font-semibold text-gray-800">{spots.length}</span> spots
                 </p>
-              )} */}
-            </div>
+              </div>
+            )}
 
-            {(searchTerm || priceFilter !== 'all' || ratingFilter > 0 || filterType !== 'all') && (
+            {(searchTerm || priceFilter !== 'all' || ratingFilter > 0 || filterType !== 'all') && !isLoading && (
               <div className="flex flex-wrap items-center gap-2 mb-6 p-3 bg-white rounded-xl shadow-sm border border-gray-100">
                 <span className="text-xs text-gray-500 font-medium">Active:</span>
                 {filterType !== 'all' && (
@@ -686,7 +608,19 @@ export default function Spots() {
               </div>
             )}
 
-            {filteredSpots.length === 0 ? (
+            {isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+              </div>
+            ) : error ? (
+              <Card className="text-center py-16 shadow-sm">
+                <p className="text-red-600 text-lg font-medium mb-1">Failed to load restaurants</p>
+                <p className="text-gray-400 text-sm mb-6">{error}</p>
+                <Button onClick={() => window.location.reload()} className="mx-auto bg-[#6B8A62] hover:bg-[#5A7352]">
+                  Try again
+                </Button>
+              </Card>
+            ) : filteredSpots.length === 0 ? (
               <Card className="text-center py-16 shadow-sm">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <FaSearch className="text-2xl text-gray-400" />

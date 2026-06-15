@@ -216,6 +216,7 @@ interface ErrorPayload {
   errors?: string[];
   Message?: string;
   Errors?: string[];
+  succeeded?: boolean;
 }
 
 interface RefreshResponse {
@@ -342,6 +343,13 @@ apiClient.interceptors.response.use(
     const status = error.response?.status || 500;
     const statusText = error.response?.statusText || 'Unknown Error';
     const responseData = error.response?.data as ErrorPayload | undefined;
+
+    // Some endpoints return HTTP 5xx with a body that says succeeded: true
+    // (a backend bug where the real status code gets overwritten after a
+    // success response is built). Trust the envelope over the transport status.
+    if (status >= 500 && responseData?.succeeded === true && error.response) {
+      return error.response;
+    }
 
     // Login/register/etc. — surface the real API error, never refresh or redirect
     if (isPublicAuthEndpoint(originalRequest.url)) {

@@ -20,7 +20,7 @@ import NotFound from '../Components/not-found/NotFound';
 import About from '../Components/about/About';
 import Spots from '../Components/spots/Spots';
 // import RestaurantList from '../Components/restaurants/RestaurantList';
-// import RestaurantDetails from '../Components/restaurants/RestaurantDetails';
+import RestaurantDetails from '../Components/restaurants/RestaurantDetails';
 // import RestaurantAdmin from '../Components/restaurants/RestaurantAdmin';
 import StaffReservations from '../Components/admin/StaffReservations';
 import MyReservations from '../Components/myreservations/MyReservations';
@@ -86,11 +86,11 @@ export default function AppRoutes() {
               <RestaurantList />
             </ProtectedRoute>
           } /> */}
-          {/* <Route path={APP_ROUTES.restaurantDetails} element={
+          <Route path={APP_ROUTES.restaurantDetails} element={
             <ProtectedRoute>
               <RestaurantDetails />
             </ProtectedRoute>
-          } /> */}
+          } />
           {/* <Route path={APP_ROUTES.restaurantAdmin} element={
             <ProtectedRoute>
               <RestaurantAdmin />

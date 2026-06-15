@@ -13,6 +13,7 @@ import {
   FaTimes,
   FaSpinner,
   FaUtensils,
+  FaEdit,
 } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRestaurantById } from '../../services/restaurant';
@@ -27,7 +28,7 @@ import {
   getStaffMembers,
   inviteStaff,
 } from '../../services/auth';
-import { createTable, deleteTable, getTables } from '../../services/table';
+import { createTable, deleteTable, getTables, updateTable } from '../../services/table';
 import type { ReservationStaffItem } from '../../types/reservation';
 import type { StaffMember } from '../../types/auth';
 import type { TableItem } from '../../types/table';
@@ -40,6 +41,26 @@ import {
   sortStaffReservationsByPriority,
   STATUS_GROUPS,
 } from '../../lib/reservation-status';
+
+const getReservationStatusStyles = (status: string | number) => {
+  if (matchesStatusGroup(STATUS_GROUPS.active, status)) {
+    return { badge: 'bg-emerald-100 text-emerald-700', border: 'border-l-emerald-400' };
+  }
+  if (matchesStatusGroup(STATUS_GROUPS.pending, status)) {
+    return { badge: 'bg-amber-100 text-amber-700', border: 'border-l-amber-400' };
+  }
+  if (normalizeReservationStatus(status) === 'completed') {
+    return { badge: 'bg-blue-100 text-blue-700', border: 'border-l-blue-400' };
+  }
+  return { badge: 'bg-gray-100 text-gray-500', border: 'border-l-gray-300' };
+};
+
+const getInitials = (name?: string) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  const initials = parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : parts[0].slice(0, 2);
+  return initials.toUpperCase();
+};
 import DashboardShell, { StatCard } from '../dashboard/DashboardShell';
 import { ToastStack, createToast, type ToastMessage } from '../common/Toast';
 import { APP_ROUTES } from '../../constants/routes';
@@ -65,6 +86,8 @@ export default function ManagerDashboard() {
   const [actionId, setActionId] = useState<number | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [newTable, setNewTable] = useState({ tableNumber: '', capacity: '' });
+  const [editingTableNum, setEditingTableNum] = useState<number | null>(null);
+  const [editCapacity, setEditCapacity] = useState('');
 
   const pushToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToasts((prev) => [...prev, createToast(text, type)]);
@@ -183,7 +206,7 @@ export default function ManagerDashboard() {
   };
 
   const handleBlockStaff = async (member: StaffMember) => {
-    const staffId = member.userName || member.email;
+    const staffId = member.email;
     if (!window.confirm(`Block staff member ${member.displayName}?`)) return;
     try {
       const response = await blockStaffMember({ staffId });
@@ -218,6 +241,24 @@ export default function ManagerDashboard() {
       pushToast(err instanceof Error ? err.message : 'Failed to add table', 'error');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleEditTable = async (tableNum: number) => {
+    const capacity = Number(editCapacity);
+    if (!capacity || capacity < 1) {
+      pushToast('Enter a valid capacity', 'error');
+      return;
+    }
+    try {
+      const response = await updateTable({ tableNumber: tableNum, capacity });
+      if (!response.succeeded) throw new Error(response.message || 'Update failed');
+      pushToast(`Table #${tableNum} updated`);
+      setEditingTableNum(null);
+      setEditCapacity('');
+      await fetchTables();
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Failed to update table', 'error');
     }
   };
 
@@ -288,11 +329,11 @@ export default function ManagerDashboard() {
         <div className="flex flex-wrap gap-2 mb-6">
           {(
             [
-              ['reservations', 'Reservations', FaCalendarAlt],
-              ['staff', 'Staff team', FaUsers],
-              ['tables', 'Tables', FaUtensils],
+              ['reservations', 'Reservations', FaCalendarAlt, pendingCount],
+              ['staff', 'Staff team', FaUsers, 0],
+              ['tables', 'Tables', FaUtensils, 0],
             ] as const
-          ).map(([key, label, Icon]) => (
+          ).map(([key, label, Icon, badge]) => (
             <button
               key={key}
               type="button"
@@ -305,6 +346,15 @@ export default function ManagerDashboard() {
             >
               <Icon />
               {label}
+              {badge > 0 && (
+                <span
+                  className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                    section === key ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'
+                  }`}
+                >
+                  {badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -344,23 +394,27 @@ export default function ManagerDashboard() {
                 filteredReservations.map((res) => {
                   const pending = matchesStatusGroup(STATUS_GROUPS.pending, res.status);
                   const active = matchesStatusGroup(STATUS_GROUPS.active, res.status);
+                  const statusStyles = getReservationStatusStyles(res.status);
                   return (
                     <div
                       key={res.id}
-                      className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition"
+                      className={`border border-gray-100 border-l-4 ${statusStyles.border} rounded-xl p-4 hover:shadow-md transition`}
                     >
                       <div className="flex flex-wrap justify-between gap-2 mb-2">
                         <div>
                           <h3 className="font-semibold text-gray-900">{res.userName}</h3>
-                          <p className="text-xs text-gray-500">
-                            Table {res.tableNumber || '—'} · {res.numberOfGuests} guests
+                          <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                            <FaChair className="text-gray-400" /> Table {res.tableNumber || '—'}
+                            <span className="text-gray-300">·</span>
+                            <FaUsers className="text-gray-400" /> {res.numberOfGuests} guests
                           </p>
                         </div>
-                        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 capitalize">
+                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusStyles.badge}`}>
                           {formatStatusLabel(res.status)}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 mb-2">
+                      <p className="text-sm text-gray-600 mb-2 flex items-center gap-1.5">
+                        <FaClock className="text-gray-400" />
                         {new Date(res.startDateTime).toLocaleString()} –{' '}
                         {new Date(res.endDateTime).toLocaleTimeString([], {
                           hour: '2-digit',
@@ -428,29 +482,29 @@ export default function ManagerDashboard() {
                 Invite staff
               </button>
             </div>
-            <p className="text-xs text-gray-500 mb-4">
-              Sends an invitation via POST /api/Account/InviteStaff. Staff complete signup with their
-              invite code at{' '}
-              <a href={APP_ROUTES.staffRegister} className="text-[#6B8A62] underline">
-                staff registration
-              </a>
-              .
-            </p>
             {staffList.length === 0 ? (
-              <p className="text-center text-gray-400 py-8">No staff members yet</p>
+              <div className="text-center py-12 text-gray-400">
+                <FaUsers className="text-3xl mx-auto mb-2" />
+                No staff members yet
+              </div>
             ) : (
               <ul className="space-y-2">
                 {staffList.map((staff) => (
                   <li
                     key={staff.email}
-                    className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100"
+                    className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100 hover:shadow-sm transition"
                   >
-                    <div>
-                      <p className="font-medium text-gray-900">{staff.displayName}</p>
-                      <p className="text-xs text-gray-500">{staff.email}</p>
-                      {staff.phoneNumber && (
-                        <p className="text-xs text-gray-400">{staff.phoneNumber}</p>
-                      )}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#6B8A62]/10 text-[#6B8A62] font-semibold flex items-center justify-center text-sm shrink-0">
+                        {getInitials(staff.displayName)}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{staff.displayName}</p>
+                        <p className="text-xs text-gray-500">{staff.email}</p>
+                        {staff.phoneNumber && (
+                          <p className="text-xs text-gray-400">{staff.phoneNumber}</p>
+                        )}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -479,28 +533,76 @@ export default function ManagerDashboard() {
               ) : (
                 <div className="grid sm:grid-cols-2 gap-3">
                   {tables.map((t) => (
-                    <div
-                      key={t.tableNumber}
-                      className="flex justify-between items-center p-4 border border-gray-100 rounded-xl"
-                    >
-                      <div>
-                        <p className="font-semibold text-gray-900">Table #{t.tableNumber}</p>
-                        <p className="text-sm text-gray-500">Capacity: {t.capacity}</p>
-                        <p
-                          className={`text-xs mt-1 ${
-                            t.isAvailable ? 'text-emerald-600' : 'text-gray-400'
-                          }`}
-                        >
-                          {t.isAvailable ? 'Available' : 'Unavailable'}
-                        </p>
+                    <div key={t.tableNumber} className="p-4 border border-gray-100 rounded-xl space-y-2 hover:shadow-md transition">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-xl bg-[#6B8A62]/10 text-[#6B8A62] flex items-center justify-center text-lg shrink-0">
+                            <FaChair />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">Table #{t.tableNumber}</p>
+                            <p className="text-sm text-gray-500 flex items-center gap-1">
+                              <FaUsers className="text-gray-400 text-xs" /> Seats {t.capacity}
+                            </p>
+                            <span
+                              className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full mt-1 ${
+                                t.isAvailable
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}
+                            >
+                              {t.isAvailable ? 'Available' : 'Unavailable'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingTableNum(t.tableNumber);
+                              setEditCapacity(String(t.capacity));
+                            }}
+                            className="text-[#6B8A62] hover:bg-[#6B8A62]/10 p-2 rounded-lg"
+                            title="Edit capacity"
+                          >
+                            <FaEdit />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTable(t.tableNumber)}
+                            className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                            title="Delete table"
+                          >
+                            <FaTrashAlt />
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTable(t.tableNumber)}
-                        className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
-                      >
-                        <FaTrashAlt />
-                      </button>
+                      {editingTableNum === t.tableNumber && (
+                        <div className="flex gap-2 items-center pt-1">
+                          <input
+                            type="number"
+                            min={1}
+                            value={editCapacity}
+                            onChange={e => setEditCapacity(e.target.value)}
+                            placeholder="New capacity"
+                            className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#6B8A62]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void handleEditTable(t.tableNumber)}
+                            className="px-3 py-1.5 bg-[#6B8A62] text-white text-sm rounded-lg hover:bg-[#5A7352]"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingTableNum(null)}
+                            className="px-3 py-1.5 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

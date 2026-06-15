@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { FaCreditCard, FaLock, FaCheckCircle } from 'react-icons/fa';
 
 interface PaymentFormProps {
@@ -84,10 +84,10 @@ export default function PaymentForm({ amount, onPaymentComplete, onCancel }: Pay
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!validateForm()) return;
 
     setIsProcessing(true);
@@ -96,7 +96,7 @@ export default function PaymentForm({ amount, onPaymentComplete, onCancel }: Pay
     setTimeout(() => {
       setIsProcessing(false);
       setShowSuccess(true);
-      
+
       const paymentData: PaymentData = {
         cardNumber: formData.cardNumber,
         cardholderName: formData.cardholderName,

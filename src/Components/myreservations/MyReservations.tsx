@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaChevronLeft, FaCalendarAlt } from 'react-icons/fa';
 import { APP_ROUTES } from '../../constants/routes';
-import { cancelReservation, getAllUserReservations } from '../../services/reservation';
+import { cancelReservation, getAllUserReservations, updateReservationTime } from '../../services/reservation';
 import { addReview } from '../../services/restaurant';
 import type { ReservationUserItem } from '../../types/reservation';
 import type { AddReviewCommand } from '../../types/restaurant';
@@ -94,6 +94,13 @@ const MyReservations = () => {
   const [reservationToCancel, setReservationToCancel] = useState<number | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   
+  // Reschedule modal state
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [reservationToReschedule, setReservationToReschedule] = useState<ReservationUserItem | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [isRescheduling, setIsRescheduling] = useState(false);
+
   // Review modal state
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedForReview, setSelectedForReview] = useState<ReservationUserItem | null>(null);
@@ -163,6 +170,32 @@ const MyReservations = () => {
       alert(err instanceof Error ? err.message : 'Failed to cancel reservation');
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  // Reschedule reservation
+  const handleReschedule = async () => {
+    if (!reservationToReschedule || !rescheduleDate || !rescheduleTime) return;
+    const originalStart = new Date(reservationToReschedule.startDateTime).getTime();
+    const originalEnd = new Date(reservationToReschedule.endDateTime).getTime();
+    const durationMs = originalEnd - originalStart;
+    const newStart = new Date(`${rescheduleDate}T${rescheduleTime}`);
+    const newEnd = new Date(newStart.getTime() + durationMs);
+    setIsRescheduling(true);
+    try {
+      const response = await updateReservationTime(
+        reservationToReschedule.id,
+        newStart.toISOString(),
+        newEnd.toISOString()
+      );
+      if (!response.succeeded) throw new Error(response.message || 'Reschedule failed');
+      setShowRescheduleModal(false);
+      setReservationToReschedule(null);
+      await fetchReservations();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to reschedule reservation');
+    } finally {
+      setIsRescheduling(false);
     }
   };
 
@@ -373,6 +406,12 @@ const MyReservations = () => {
                           setReservationToCancel(reservation.id);
                           setShowCancelModal(true);
                         }}
+                        onReschedule={() => {
+                          setReservationToReschedule(reservation);
+                          setRescheduleDate(reservation.startDateTime.slice(0, 10));
+                          setRescheduleTime(reservation.startDateTime.slice(11, 16));
+                          setShowRescheduleModal(true);
+                        }}
                       />
                     ))}
                   </div>
@@ -398,6 +437,12 @@ const MyReservations = () => {
                         onCancel={() => {
                           setReservationToCancel(reservation.id);
                           setShowCancelModal(true);
+                        }}
+                        onReschedule={() => {
+                          setReservationToReschedule(reservation);
+                          setRescheduleDate(reservation.startDateTime.slice(0, 10));
+                          setRescheduleTime(reservation.startDateTime.slice(11, 16));
+                          setShowRescheduleModal(true);
                         }}
                       />
                     ))}
@@ -428,6 +473,20 @@ const MyReservations = () => {
           )
         )}
       </div>
+
+      {/* Reschedule Modal */}
+      {showRescheduleModal && reservationToReschedule && (
+        <RescheduleModal
+          reservation={reservationToReschedule}
+          date={rescheduleDate}
+          time={rescheduleTime}
+          isProcessing={isRescheduling}
+          onDateChange={setRescheduleDate}
+          onTimeChange={setRescheduleTime}
+          onSubmit={handleReschedule}
+          onClose={() => setShowRescheduleModal(false)}
+        />
+      )}
 
       {/* Cancel Modal */}
       {showCancelModal && (
@@ -529,16 +588,18 @@ const EmptyState = ({
   </div>
 );
 
-const ReservationCard = ({ 
-  reservation, 
-  isExpanded, 
-  onToggleExpand, 
-  onCancel 
-}: { 
-  reservation: ReservationUserItem; 
-  isExpanded: boolean; 
-  onToggleExpand: () => void; 
+const ReservationCard = ({
+  reservation,
+  isExpanded,
+  onToggleExpand,
+  onCancel,
+  onReschedule,
+}: {
+  reservation: ReservationUserItem;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
   onCancel: () => void;
+  onReschedule: () => void;
 }) => {
   const statusStyle = getStatusStyles(reservation.status);
   const pending = isPendingApproval(reservation.status);
@@ -618,13 +679,22 @@ const ReservationCard = ({
 
         <div className="flex flex-wrap gap-3 mt-5">
           {canBeCancelled(reservation.status) && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-4 py-2 border border-red-200 text-red-600 rounded-xl hover:bg-red-50 text-sm font-medium transition-colors"
-            >
-              Cancel reservation
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={onReschedule}
+                className="px-4 py-2 border border-[#6B8A62] text-[#6B8A62] rounded-xl hover:bg-[#6B8A62]/10 text-sm font-medium transition-colors"
+              >
+                Change time
+              </button>
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-4 py-2 border border-red-200 text-red-600 rounded-xl hover:bg-red-50 text-sm font-medium transition-colors"
+              >
+                Cancel reservation
+              </button>
+            </>
           )}
         </div>
 
@@ -830,6 +900,83 @@ const ReviewModal = ({
     </div>
   </div>
 );
+
+const RescheduleModal = ({
+  reservation,
+  date,
+  time,
+  isProcessing,
+  onDateChange,
+  onTimeChange,
+  onSubmit,
+  onClose,
+}: {
+  reservation: ReservationUserItem;
+  date: string;
+  time: string;
+  isProcessing: boolean;
+  onDateChange: (v: string) => void;
+  onTimeChange: (v: string) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}) => {
+  const today = new Date().toISOString().slice(0, 10);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className="relative bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+        <div className="text-center mb-6">
+          <div className="bg-[#6B8A62]/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+            <ClockIcon className="w-8 h-8 text-[#6B8A62]" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-1">Change reservation time</h3>
+          <p className="text-gray-500 text-sm">{reservation.restaurantName}</p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New date</label>
+            <input
+              type="date"
+              min={today}
+              value={date}
+              onChange={e => onDateChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#6B8A62] focus:border-[#6B8A62]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New start time</label>
+            <input
+              type="time"
+              value={time}
+              onChange={e => onTimeChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#6B8A62] focus:border-[#6B8A62]"
+            />
+          </div>
+          <p className="text-xs text-gray-400">Duration stays the same as your original booking.</p>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            type="button"
+            onClick={() => void onSubmit()}
+            disabled={isProcessing || !date || !time}
+            className="flex-1 px-4 py-2.5 bg-[#6B8A62] text-white rounded-xl hover:bg-[#5A7352] disabled:opacity-50 font-medium"
+          >
+            {isProcessing ? 'Saving...' : 'Confirm change'}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default MyReservations;
 

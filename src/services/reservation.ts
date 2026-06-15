@@ -67,7 +67,8 @@ function buildReservationQueryString(filters?: UserReservationsFilters): string 
       Date: filters?.date,
       From: filters?.from,
       To: filters?.to,
-      PageIndex: filters?.pageIndex,
+      // Backend's GetAllReservation endpoints use 1-based PageIndex (PageIndex=1 is the first page).
+      PageIndex: (filters?.pageIndex ?? 0) + 1,
       PageSize: filters?.pageSize,
       UserId: undefined,
     },
@@ -129,7 +130,8 @@ export async function getAllStaffReservations(
       Date: filters?.date,
       From: filters?.from,
       To: filters?.to,
-      PageIndex: filters?.pageIndex,
+      // Backend's GetAllReservation endpoints use 1-based PageIndex (PageIndex=1 is the first page).
+      PageIndex: (filters?.pageIndex ?? 0) + 1,
       PageSize: filters?.pageSize,
     },
     { Status: filters?.status }

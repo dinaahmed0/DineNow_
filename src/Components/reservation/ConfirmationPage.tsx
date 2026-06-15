@@ -8,14 +8,14 @@ import {
   STATUS_GROUPS,
 } from '../../lib/reservation-status';
 import { getStatusHelperText } from '../../lib/reservation-workflow';
-import { 
-  FiCalendar, 
-  FiClock, 
-  FiUsers, 
-  FiCoffee, 
-  FiMail, 
-  FiPhone, 
-  FiMapPin, 
+import {
+  FiCalendar,
+  FiClock,
+  FiUsers,
+  FiCoffee,
+  FiMail,
+  FiPhone,
+  FiMapPin,
   FiStar,
   FiCreditCard,
   FiPrinter,
@@ -54,7 +54,7 @@ export default function ConfirmationPage({ reservationData }: ConfirmationPagePr
   const bookingDate = createdReservation?.createdAt
     ? new Date(createdReservation.createdAt)
     : new Date();
-  
+
   const calculateFoodTotal = () => {
     return orderedFood.reduce(
       (total: number, item: ConfirmationOrderedFoodItem) =>
@@ -62,7 +62,7 @@ export default function ConfirmationPage({ reservationData }: ConfirmationPagePr
       0
     );
   };
-  
+
   const foodTotal = calculateFoodTotal();
   const depositPaid = paymentCompleted && foodTotal > 0;
   const depositAmount = foodTotal * 0.5;
@@ -194,7 +194,7 @@ export default function ConfirmationPage({ reservationData }: ConfirmationPagePr
                       </div>
                       <p className="font-semibold text-gray-900">{formData.date}</p>
                     </div>
-                    
+
                     <div className="bg-[#6B8A62]/10 rounded-xl p-4 border border-[#6B8A62]/20">
                       <div className="flex items-center gap-2 mb-2">
                         <div className="w-8 h-8 bg-[#6B8A62]/20 rounded-lg flex items-center justify-center">
@@ -204,7 +204,7 @@ export default function ConfirmationPage({ reservationData }: ConfirmationPagePr
                       </div>
                       <p className="font-semibold text-gray-900">{formData.time}</p>
                     </div>
-                    
+
                     <div className="bg-[#6B8A62]/10 rounded-xl p-4 border border-[#6B8A62]/20">
                       <div className="flex items-center gap-2 mb-2">
                         <div className="w-8 h-8 bg-[#6B8A62]/20 rounded-lg flex items-center justify-center">
@@ -214,7 +214,7 @@ export default function ConfirmationPage({ reservationData }: ConfirmationPagePr
                       </div>
                       <p className="font-semibold text-gray-900">{formData.partySize} {formData.partySize === 1 ? 'Guest' : 'Guests'}</p>
                     </div>
-                    
+
                     <div className="bg-[#6B8A62]/10 rounded-xl p-4 border border-[#6B8A62]/20">
                       <div className="flex items-center gap-2 mb-2">
                         <div className="w-8 h-8 bg-[#6B8A62]/20 rounded-lg flex items-center justify-center">
@@ -358,4 +358,4 @@ export default function ConfirmationPage({ reservationData }: ConfirmationPagePr
       </div>
     </div>
   );
-}  
+}

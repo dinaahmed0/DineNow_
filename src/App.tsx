@@ -3,6 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { queryClient } from './lib/react-query';
 import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { NavigationProvider } from './contexts/NavigationContext';
 import { ErrorBoundary } from './Components/common/ErrorBoundary';
 import AppRoutes from './routes';
@@ -13,10 +14,12 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
-            <NavigationProvider>
-              <Toaster position="top-right" />
-              <AppRoutes />
-            </NavigationProvider>
+            <NotificationProvider>
+              <NavigationProvider>
+                <Toaster position="top-right" />
+                <AppRoutes />
+              </NavigationProvider>
+            </NotificationProvider>
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>

@@ -9,7 +9,7 @@ export const APP_ROUTES = {
   confirmEmail: '/confirm-email',
   confirmation: '/confirmation',
   search: '/search',
-  restaurantDetails: '/restaurant',
+  restaurantDetails: '/restaurant/:id',
   restaurants: '/restaurants',
   restaurantAdmin: '/admin/restaurants',
   staffReservations: '/admin/reservations',

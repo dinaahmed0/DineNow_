@@ -25,6 +25,7 @@ export default function DashboardShell({
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 pt-20 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
         <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
           <div>
             {badge && (
@@ -32,9 +33,14 @@ export default function DashboardShell({
                 {badge}
               </span>
             )}
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{title}</h1>
-            {subtitle && <p className="text-gray-500 mt-1 text-sm md:text-base">{subtitle}</p>}
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">
+              {title}
+            </h1>
+            {subtitle && (
+              <p className="text-gray-500 mt-1 text-sm md:text-base">{subtitle}</p>
+            )}
           </div>
+
           <div className="flex flex-wrap items-center gap-3">
             {actions}
             {userName && (
@@ -61,6 +67,8 @@ export default function DashboardShell({
             </Link>
           </div>
         </header>
+
+        {/* Main content */}
         {children}
       </div>
     </div>
@@ -79,10 +87,10 @@ export function StatCard({
   accent?: 'emerald' | 'amber' | 'blue' | 'rose';
 }) {
   const accents = {
-    emerald: 'text-[#6B8A62]',
-    amber: 'text-amber-600',
-    blue: 'text-blue-600',
-    rose: 'text-rose-600',
+    emerald: { text: 'text-[#6B8A62]', bg: 'bg-[#6B8A62]/10' },
+    amber: { text: 'text-amber-600', bg: 'bg-amber-50' },
+    blue: { text: 'text-blue-600', bg: 'bg-blue-50' },
+    rose: { text: 'text-rose-600', bg: 'bg-rose-50' },
   };
 
   return (
@@ -90,9 +98,13 @@ export function StatCard({
       <div className="flex justify-between items-start">
         <div>
           <p className="text-gray-400 text-sm">{label}</p>
-          <p className={`text-2xl font-bold mt-1 ${accents[accent]}`}>{value}</p>
+          <p className={`text-2xl font-bold mt-1 ${accents[accent].text}`}>{value}</p>
         </div>
-        <div className={`text-2xl opacity-80 ${accents[accent]}`}>{icon}</div>
+        <div
+          className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl ${accents[accent].bg} ${accents[accent].text}`}
+        >
+          {icon}
+        </div>
       </div>
     </div>
   );

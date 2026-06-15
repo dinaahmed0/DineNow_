@@ -1,7 +1,7 @@
 import { getRolesFromToken } from './jwt-claims';
 
 export const USER_ROLES = {
-  superAdmin: ['SuperAdmin', 'Admin', 'Administrator'],
+  superAdmin: ['SuperAdmin', 'Admin', 'Administrator', 'superadmin', 'administrator'],
   manager: ['Manager', 'Owner', 'RestaurantOwner', 'RestaurantManager'],
   staff: ['Staff', 'Employee', 'Waiter'],
 } as const;

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
+import { 
   FaCalendarCheck,
   FaCheck,
   FaQrcode,
   FaSpinner,
+  FaLightbulb,
 } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -12,6 +13,7 @@ import {
   checkInReservation,
   completeReservation,
   getAllStaffReservations,
+  getReservationSuggestions,
   rejectReservation,
 } from '../../services/reservation';
 import { sortStaffReservationsByPriority } from '../../lib/reservation-status';
@@ -37,7 +39,14 @@ export default function StaffPage() {
   const [actionId, setActionId] = useState<number | null>(null);
   const [qrCode, setQrCode] = useState('');
   const [checkInLoading, setCheckInLoading] = useState(false);
+
+  const [suggestionsForReservationId, setSuggestionsForReservationId] = useState<number | null>(null);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<import('../../types/reservation').ReservationSuggestion[]>([]);
+
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
 
   const pushToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToasts((prev) => [...prev, createToast(text, type)]);
@@ -128,6 +137,33 @@ export default function StaffPage() {
   const handleLogout = () => {
     logout();
     navigate(APP_ROUTES.login);
+  };
+
+  const loadSuggestions = async (reservationId: number) => {
+    if (suggestionsForReservationId === reservationId) {
+      // toggle off
+      setSuggestionsForReservationId(null);
+      setSuggestions([]);
+      setSuggestionsError(null);
+      return;
+    }
+
+    setSuggestionsForReservationId(reservationId);
+    setSuggestionsLoading(true);
+    setSuggestionsError(null);
+    setSuggestions([]);
+
+    try {
+      const res = await getReservationSuggestions(reservationId);
+      if (!res.succeeded) {
+        throw new Error(res.message || 'Failed to load suggestions');
+      }
+      setSuggestions(res.data ?? []);
+    } catch (err) {
+      setSuggestionsError(err instanceof Error ? err.message : 'Failed to load suggestions');
+    } finally {
+      setSuggestionsLoading(false);
+    }
   };
 
   return (
@@ -265,7 +301,68 @@ export default function StaffPage() {
                           Mark complete
                         </button>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => void loadSuggestions(r.id)}
+                        className={`px-3 py-1.5 border text-sm rounded-lg transition-colors ${
+                          suggestionsForReservationId === r.id
+                            ? 'border-[#6B8A62] text-[#6B8A62] bg-[#6B8A62]/10'
+                            : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                        }`}
+                        disabled={suggestionsLoading}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <FaLightbulb className="text-[#6B8A62]" />
+                          {suggestionsForReservationId === r.id ? 'Hide suggestions' : 'View suggestions'}
+                        </span>
+                      </button>
                     </div>
+
+                    {suggestionsForReservationId === r.id && (
+                      <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <div className="flex items-center justify-between gap-4">
+                          <p className="font-semibold text-gray-900 flex items-center gap-2">
+                            <FaLightbulb className="text-[#6B8A62]" />
+                            Suggested slots
+                          </p>
+                          {suggestionsLoading && (
+                            <FaSpinner className="animate-spin text-[#6B8A62]" />
+                          )}
+                        </div>
+
+                        {suggestionsError && (
+                          <p className="mt-3 text-sm text-red-600">{suggestionsError}</p>
+                        )}
+
+                        {!suggestionsLoading && !suggestionsError && suggestions.length === 0 && (
+                          <p className="mt-3 text-sm text-gray-500">No suggestions available.</p>
+                        )}
+
+                        {!suggestionsLoading && suggestions.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {suggestions.map((s) => (
+                              <div
+                                key={s.suggestionId}
+                                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-white border border-gray-100 rounded-lg"
+                              >
+                                <div>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    Table {s.tableNumber}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {new Date(s.startTime).toLocaleString()} – {new Date(s.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-700">
+                                  Expires: {new Date(s.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })

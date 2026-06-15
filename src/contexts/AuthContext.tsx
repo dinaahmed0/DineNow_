@@ -11,6 +11,11 @@ import {
   writeStoredUser,
   type StoredAuthUser,
 } from '../lib/auth-session';
+import {
+  startSignalRConnection,
+  stopSignalRConnection,
+  reinitializeSignalRConnection,
+} from '../services/signalR';
 
 export type User = AuthTokens;
 
@@ -105,11 +110,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     userRef.current = user;
   }, [user]);
 
+  // Start SignalR connection when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      void startSignalRConnection().catch((error) => {
+        console.error('Failed to start SignalR connection:', error);
+      });
+    }
+  }, [isAuthenticated, user]);
+
   const logout = useCallback(() => {
     setUser(null);
     setIsAuthenticated(false);
     setIsLoading(false);
     clearStoredUser();
+    // Stop SignalR connection on logout
+    void stopSignalRConnection();
   }, []);
 
   useEffect(() => {
@@ -140,6 +156,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(updatedUser);
     setIsAuthenticated(true);
     writeStoredUser(updatedUser);
+    // Reinitialize SignalR connection with new token
+    void reinitializeSignalRConnection();
     return true;
   }, []);
 
@@ -171,6 +189,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         let sessionUser = toAuthUser(stored);
 
+        // If refresh token works but access token is expiring, we may refresh here.
+        // Some backends reject refresh if tokens are not yet persisted.
+        // Ensure tokenTimestamp exists before we decide to refresh.
         const tokenTimestamp = localStorage.getItem('tokenTimestamp');
         const isTimestampStale =
           tokenTimestamp && parseInt(tokenTimestamp, 10) < Date.now() - TOKEN_MAX_AGE_MS;

@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
+import { isSuperAdmin, isManager, isStaff } from '../../lib/user-roles';
 
 const StyledMailIcon = () => <HiMail className="text-[#6B8A62]" />;
 const StyledLockIcon = () => <HiLockClosed className="text-[#6B8A62]" />;
@@ -12,9 +13,10 @@ const StyledLockIcon = () => <HiLockClosed className="text-[#6B8A62]" />;
 export default function Login() {
   const navigate = useNavigate();
   const auth = useAuth();
+
   const [formData, setFormData] = useState({
-    email: "",
-    password: ""
+    email: '',
+    password: '',
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -22,9 +24,10 @@ export default function Login() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -42,13 +45,40 @@ export default function Login() {
     try {
       await auth.login(formData.email.trim(), formData.password);
 
-      navigate(APP_ROUTES.home, {
+      // Auth state updates asynchronously, so read token directly
+      const stored = localStorage.getItem('user');
+
+      const storedUser = stored
+        ? (JSON.parse(stored) as {
+            token?: string;
+            accessToken?: string;
+          })
+        : null;
+
+      const token =
+        storedUser?.token ||
+        storedUser?.accessToken ||
+        auth.user?.token ||
+        '';
+
+      const nextRoute = isSuperAdmin(token)
+        ? APP_ROUTES.superAdmin
+        : isManager(token)
+          ? APP_ROUTES.managerDashboard
+          : isStaff(token)
+            ? APP_ROUTES.staffDashboard
+            : APP_ROUTES.home;
+
+      navigate(nextRoute, {
         state: { showWelcomeToast: true },
       });
     } catch (error) {
       console.error('Login error:', error);
+
       const errorMessage =
-        error instanceof Error ? error.message : 'Login failed. Please try again.';
+        error instanceof Error
+          ? error.message
+          : 'Login failed. Please try again.';
 
       toast.error(errorMessage, {
         duration: 3000,
@@ -68,33 +98,41 @@ export default function Login() {
           <h1 className="text-2xl font-bold text-[#6B8A62] md:text-3xl">
             Login to your account
           </h1>
+
           <p className="mt-2 text-sm text-gray-600">
             Sign in to access your account
           </p>
         </div>
 
         {submitError && (
-          <Alert color="failure" onDismiss={() => setSubmitError(null)}>
+          <Alert
+            color="failure"
+            onDismiss={() => setSubmitError(null)}
+          >
             <span className="font-medium">Error!</span> {submitError}
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-4"
+        >
           <div>
             <div className="mb-2 block">
               <Label htmlFor="email">Email Address</Label>
             </div>
+
             <TextInput
               id="email"
               name="email"
               type="email"
-              onChange={handleChange}
               value={formData.email}
+              onChange={handleChange}
               icon={StyledMailIcon}
               placeholder="name@example.com"
               style={{
-                fontSize: '0.75rem', 
-                color: '#828283', 
+                fontSize: '0.75rem',
+                color: '#828283',
               }}
               required
             />
@@ -104,30 +142,35 @@ export default function Login() {
             <div className="mb-2 block">
               <Label htmlFor="password">Password</Label>
             </div>
+
             <TextInput
               id="password"
               name="password"
               type="password"
-              onChange={handleChange}
               value={formData.password}
+              onChange={handleChange}
               icon={StyledLockIcon}
               placeholder="********"
               style={{
-                fontSize: '0.75rem', 
-                color: '#828283', 
+                fontSize: '0.75rem',
+                color: '#828283',
               }}
               required
             />
-            <p className="mt-2 text-xs text-gray-500 ">
+
+            <p className="mt-2 text-xs text-gray-500">
               Forgot your password?{' '}
-              <Link to={APP_ROUTES.forgotPassword} className="text-[#6B8A62] hover:underline">
+              <Link
+                to={APP_ROUTES.forgotPassword}
+                className="text-[#6B8A62] hover:underline"
+              >
                 Forget Password
               </Link>
             </p>
           </div>
-          
-          <button 
-            type="submit" 
+
+          <button
+            type="submit"
             disabled={isLoading}
             className="mt-2 w-full bg-gradient-to-r from-[#6B8A62] to-[#5A7352] text-white py-3 px-6 rounded-lg hover:from-[#5A7352] hover:to-[#4A5C42] focus:outline-none focus:ring-2 focus:ring-[#6B8A62] transition-all cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -141,9 +184,12 @@ export default function Login() {
             )}
           </button>
 
-          <p className="text-center text-sm text-gray-600 ">
+          <p className="text-center text-sm text-gray-600">
             Don't have an account?{' '}
-            <Link to={APP_ROUTES.signup} className="text-[#6B8A62] hover:underline">
+            <Link
+              to={APP_ROUTES.signup}
+              className="text-[#6B8A62] hover:underline"
+            >
               Sign up
             </Link>
           </p>
@@ -152,3 +198,4 @@ export default function Login() {
     </div>
   );
 }
+

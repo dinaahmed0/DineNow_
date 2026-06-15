@@ -7,6 +7,9 @@ export interface RestaurantApiDto {
   name: string;
   isActive: boolean;
   averageRating: number;
+  address?: string;
+  phone?: string;
+  openingHours?: string;
 }
 
 export interface CreateRestaurantApiCommand {

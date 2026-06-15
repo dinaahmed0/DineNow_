@@ -24,6 +24,7 @@ import {
 } from 'react-icons/fa';
 import FoodOrderingStep from './FoodOrderingStep';
 import { createReservationRequest } from '../../services/reservation';
+import { getAvailableTables } from '../../services/table';
 import { useAuth } from '../../contexts/AuthContext';
 import { combineDateAndTime, toApiDateTime } from '../../lib/reservation-datetime';
 import { APP_ROUTES } from '../../constants/routes';
@@ -96,6 +97,7 @@ export default function ReservationPage() {
 
   const [errors, setErrors] = useState<ReservationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
   // Generate next 60 days for date selection (about 2 months)
   const generateDateOptions = () => {
@@ -161,15 +163,36 @@ export default function ReservationPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const validateStep3 = () => {
-    // Food ordering is optional, so always valid
-    return true;
-  };
+  const handleNext = async () => {
+    if (step === 1) {
+      if (!validateStep1()) return;
 
-  const handleNext = () => {
-    if (step === 1 && validateStep1()) {
+      setIsCheckingAvailability(true);
+      try {
+        const numberOfGuests = formData.partySize === '9+' ? 10 : Number(formData.partySize);
+        const start = combineDateAndTime(formData.date, formData.time);
+        const end = new Date(start.getTime() + formData.durationHours * 60 * 60 * 1000);
+
+        const result = await getAvailableTables({
+          guests: numberOfGuests,
+          start: toApiDateTime(start),
+          end: toApiDateTime(end),
+          pageSize: 1,
+        });
+
+        if (result.succeeded && result.data && result.data.count === 0) {
+          setErrors(prev => ({ ...prev, time: 'No tables available for the selected time and party size. Please choose a different time.' }));
+          return;
+        }
+      } catch {
+        // If the availability check itself fails, let the user proceed — the backend
+        // will reject the reservation if truly no table is available.
+      } finally {
+        setIsCheckingAvailability(false);
+      }
+
       setStep(2);
-    } else if (step === 2 && validateStep3()) {
+    } else if (step === 2) {
       setStep(3);
     }
   };
@@ -578,10 +601,16 @@ export default function ReservationPage() {
 
                   <div className="pt-6">
                     <button
-                      onClick={handleNext}
-                      className="w-full bg-[#6B8A62] hover:bg-[#5A7352] text-white py-3 rounded-lg font-semibold transition-all transform hover:scale-105 duration-300"
+                      onClick={() => void handleNext()}
+                      disabled={isCheckingAvailability}
+                      className="w-full bg-[#6B8A62] hover:bg-[#5A7352] disabled:bg-gray-400 text-white py-3 rounded-lg font-semibold transition-all transform hover:scale-105 duration-300 flex items-center justify-center gap-2"
                     >
-                      Next →
+                      {isCheckingAvailability ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Checking availability...
+                        </>
+                      ) : 'Next →'}
                     </button>
                   </div>
                 </div>
@@ -602,7 +631,7 @@ export default function ReservationPage() {
                       Back
                     </button>
                     <button
-                      onClick={handleNext}
+                      onClick={() => void handleNext()}
                       className="flex-1 bg-[#6B8A62] hover:bg-[#5A7352] text-white py-3 rounded-lg font-semibold transition-all transform hover:scale-105 duration-300"
                     >
                       Next →

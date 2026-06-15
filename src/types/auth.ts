@@ -5,6 +5,7 @@ export interface RegisterRequest {
   displayName: string;
   email: string;
   password: string;
+  phoneNumber?: string;
   role?: string;
 }
 
@@ -92,3 +93,6 @@ export type InviteStaffResponse = ApiResponse<string>;
 export type RegisterStaffResponse = ApiResponse<string>;
 export type StaffListResponse = ApiResponse<StaffMember[]>;
 export type BlockStaffResponse = ApiResponse<string>;
+
+
+

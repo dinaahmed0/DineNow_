@@ -5,9 +5,10 @@ import type { Review } from '../../services/reviewService';
 
 interface ReviewsListProps {
   pageSize?: number;
+  restaurantId?: number;
 }
 
-export const ReviewsList: React.FC<ReviewsListProps> = ({ pageSize = 10 }) => {
+export const ReviewsList: React.FC<ReviewsListProps> = ({ pageSize = 10, restaurantId }) => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -16,7 +17,7 @@ export const ReviewsList: React.FC<ReviewsListProps> = ({ pageSize = 10 }) => {
 
   useEffect(() => {
     fetchReviews();
-  }, [pageIndex, pageSize]);
+  }, [pageIndex, pageSize, restaurantId]);
 
   const fetchReviews = async () => {
     setIsLoading(true);
@@ -26,6 +27,7 @@ export const ReviewsList: React.FC<ReviewsListProps> = ({ pageSize = 10 }) => {
       const response = await reviewService.getReviews({
         pageIndex: pageIndex - 1,
         pageSize,
+        restaurantId,
       });
 
       if (response.succeeded) {

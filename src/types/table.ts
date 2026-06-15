@@ -14,6 +14,7 @@ export interface CreateTableCommand {
 }
 
 export interface UpdateTableCommand {
+  tableNumber: number;
   capacity: number;
 }
 

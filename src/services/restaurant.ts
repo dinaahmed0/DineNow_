@@ -28,15 +28,15 @@ function mapRestaurantDtoToView(
     name: dto.name,
     description: extras.description ?? '',
     cuisine: extras.cuisine ?? '',
-    address: extras.address ?? '',
-    phone: extras.phone ?? '',
+    address: dto.address ?? extras.address ?? '',
+    phone: dto.phone ?? extras.phone ?? '',
     email: extras.email,
     website: extras.website,
     rating: dto.averageRating ?? 0,
     reviewCount: extras.reviewCount ?? 0,
     priceRange: extras.priceRange ?? '$$',
     location: extras.location ?? '',
-    hours: extras.hours ?? '',
+    hours: dto.openingHours ?? extras.hours ?? '',
     features: extras.features ?? [],
     image: extras.image,
     isActive: dto.isActive,
@@ -156,7 +156,7 @@ export async function updateRestaurant(
 
 /** Swagger documents DELETE without id; some deployments accept id in path */
 export async function deleteRestaurant(id: number): Promise<void> {
-  await apiDelete<ApiResponse<string>>(`${API.restaurant.delete}/${id}`);
+  await apiDelete<ApiResponse<string>>(`${API.restaurant.delete}?Id=${id}`);
 }
 
 export async function addReview(reviewData: AddReviewCommand) {
