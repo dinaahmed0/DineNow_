@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({
   children,
-  redirectTo = APP_ROUTES.signup,
+  redirectTo = APP_ROUTES.login,
 }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, authError } = useAuth();
   const location = useLocation();

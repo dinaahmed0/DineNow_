@@ -1,11 +1,15 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { APP_ROUTES } from '../../constants/routes';
 
 export default function Logout() {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Forward any state the caller attached (e.g. a "password changed" message)
+  // through to the login page.
+  const loginState = location.state;
 
   useEffect(() => {
     // 1) Clear authentication state + storage first
@@ -20,21 +24,21 @@ export default function Logout() {
 
     const handlePopState = () => {
       window.history.replaceState(null, '', currentUrl);
-      navigate(APP_ROUTES.login, { replace: true });
+      navigate(APP_ROUTES.login, { replace: true, state: loginState });
     };
 
     window.addEventListener('popstate', handlePopState);
 
     // 3) Redirect to login (replace history entry)
     const timer = window.setTimeout(() => {
-      navigate(APP_ROUTES.login, { replace: true });
+      navigate(APP_ROUTES.login, { replace: true, state: loginState });
     }, 300);
 
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [logout, navigate]);
+  }, [logout, navigate, loginState]);
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-50">

@@ -49,7 +49,7 @@ All responses use the envelope: `{ statusCode, meta, succeeded, message, errors,
 | GET `/api/Restaurant/{Id}` | `getRestaurantById` | Restaurant details |
 | POST `/api/Restaurant` | `addRestaurant` | Admin form |
 | PATCH `/api/Restaurant/Update` | `updateRestaurant` | Admin form |
-| DELETE `/api/Restaurant` | `deleteRestaurant` | Admin (uses `/{id}` suffix; confirm with backend) |
+| DELETE `/api/Restaurant?id={id}` | `deleteRestaurant` | Admin |
 | POST `/api/Restaurant/add-review` | `addReview` | My reservations review modal |
 | GET `/api/Restaurant/get-reviews` | `getReviews` | Review list (passes `RestaurantId`) |
 
@@ -88,4 +88,3 @@ All responses use the envelope: `{ statusCode, meta, succeeded, message, errors,
 3. Use **getAvailableTables** when creating a reservation (guests + time window).
 4. Add **staff invite/register UI** for admins using `inviteStaff` / `registerStaff`.
 5. Add **QR check-in** screen using `checkInReservation`.
-6. Confirm **DELETE restaurant** path with backend (Swagger shows no `{id}`).

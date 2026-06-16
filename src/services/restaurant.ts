@@ -154,9 +154,9 @@ export async function updateRestaurant(
   return mapRestaurantDtoToView(dto, restaurantData);
 }
 
-/** Swagger documents DELETE without id; some deployments accept id in path */
+/** Swagger documents DELETE /api/Restaurant with no params; the backend takes the id as a query string */
 export async function deleteRestaurant(id: number): Promise<void> {
-  await apiDelete<ApiResponse<string>>(`${API.restaurant.delete}?Id=${id}`);
+  await apiDelete<ApiResponse<string>>(API.restaurant.delete(id));
 }
 
 export async function addReview(reviewData: AddReviewCommand) {

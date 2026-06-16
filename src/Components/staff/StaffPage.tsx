@@ -25,13 +25,12 @@ import {
   STATUS_GROUPS,
 } from '../../lib/reservation-status';
 import DashboardShell, { StatCard } from '../dashboard/DashboardShell';
-import { ToastStack, createToast, type ToastMessage } from '../common/Toast';
 import { APP_ROUTES } from '../../constants/routes';
 
 type FilterTab = 'pending' | 'active' | 'done';
 
 export default function StaffPage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [reservations, setReservations] = useState<ReservationStaffItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,15 +44,8 @@ export default function StaffPage() {
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<import('../../types/reservation').ReservationSuggestion[]>([]);
 
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-
   const pushToast = (text: string, type: 'success' | 'error' = 'success') => {
-    setToasts((prev) => [...prev, createToast(text, type)]);
-  };
-
-  const dismissToast = (id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    if (type === 'error') console.error(text);
   };
 
   const load = useCallback(async () => {
@@ -135,8 +127,8 @@ export default function StaffPage() {
   };
 
   const handleLogout = () => {
-    logout();
-    navigate(APP_ROUTES.login);
+    // Route through the centralized logout screen so history/back cannot restore the session.
+    navigate(APP_ROUTES.logout);
   };
 
   const loadSuggestions = async (reservationId: number) => {
@@ -370,8 +362,6 @@ export default function StaffPage() {
           </div>
         </div>
       </DashboardShell>
-
-      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </>
   );
 }

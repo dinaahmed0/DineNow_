@@ -1,7 +1,11 @@
 import type { ApiResponse } from './common';
 import type { PaginationData } from './reservation';
 
-/** Shape returned by GET /api/Restaurant and GET /api/Restaurant/{id} */
+/**
+ * Shape returned by GET /api/Restaurant and GET /api/Restaurant/{id}.
+ * The backend's ReturnRestaurantQuery only ever includes id/name/isActive/averageRating -
+ * address/phone/openingHours are not returned and should not be relied on for pre-filling forms.
+ */
 export interface RestaurantApiDto {
   id: number;
   name: string;
@@ -21,12 +25,16 @@ export interface CreateRestaurantApiCommand {
   openingHours: string;
 }
 
+/**
+ * Backend `UpdateRestaurantCommand`: only restaurantId is required.
+ * address/phone/openingHours are optional/nullable - omit a field to leave it unchanged.
+ */
 export interface UpdateRestaurantApiCommand {
   restaurantId: number;
-  address: string;
-  phone: string;
-  isActive: boolean;
-  openingHours: string;
+  address?: string;
+  phone?: string;
+  isActive?: boolean;
+  openingHours?: string;
 }
 
 export type RestaurantApiResponse = ApiResponse<RestaurantApiDto>;

@@ -1,17 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, Label, TextInput, Alert, Spinner } from 'flowbite-react';
 import { HiMail, HiLockClosed } from 'react-icons/hi';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
-import { isSuperAdmin, isManager, isStaff } from '../../lib/user-roles';
+import { getPostLoginRoute } from '../../lib/user-roles';
 
 const StyledMailIcon = () => <HiMail className="text-[#6B8A62]" />;
 const StyledLockIcon = () => <HiLockClosed className="text-[#6B8A62]" />;
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const auth = useAuth();
 
   const [formData, setFormData] = useState({
@@ -21,6 +22,24 @@ export default function Login() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Already signed in (e.g. revisiting /login via the back button) — go straight
+  // to the user's dashboard instead of showing the login form again.
+  useEffect(() => {
+    if (!auth.isLoading && auth.isAuthenticated && auth.user?.token) {
+      navigate(getPostLoginRoute(auth.user.token), { replace: true });
+    }
+  }, [auth.isLoading, auth.isAuthenticated, auth.user, navigate]);
+
+  // Surface any message forwarded from another flow (e.g. "password changed").
+  useEffect(() => {
+    const state = location.state as { message?: string; authError?: string } | null;
+    if (state?.message) {
+      toast.success(state.message, { duration: 4000, position: 'top-center' });
+    } else if (state?.authError) {
+      toast.error(state.authError, { duration: 4000, position: 'top-center' });
+    }
+  }, [location.state]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -61,15 +80,8 @@ export default function Login() {
         auth.user?.token ||
         '';
 
-      const nextRoute = isSuperAdmin(token)
-        ? APP_ROUTES.superAdmin
-        : isManager(token)
-          ? APP_ROUTES.managerDashboard
-          : isStaff(token)
-            ? APP_ROUTES.staffDashboard
-            : APP_ROUTES.home;
-
-      navigate(nextRoute, {
+      navigate(getPostLoginRoute(token), {
+        replace: true,
         state: { showWelcomeToast: true },
       });
     } catch (error) {

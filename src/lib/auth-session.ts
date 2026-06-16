@@ -26,6 +26,27 @@ export function writeStoredUser(user: StoredAuthUser): void {
 export function clearStoredUser(): void {
   localStorage.removeItem('user');
   localStorage.removeItem('tokenTimestamp');
+  // Restaurant context cached for the previous session must not leak into the next login.
+  localStorage.removeItem('restaurantId');
+}
+
+const DEV_SESSION_ID_KEY = 'devSessionId';
+
+/**
+ * Each `npm run dev` start gets a fresh build-time session id (see vite.config.ts).
+ * If it doesn't match the one recorded from the previous run, the dev server was
+ * restarted since the last page load — discard any leftover session so dev always
+ * starts logged out, even if the stored token is still valid. No-op in production
+ * builds, where sessions persist across reloads as normal.
+ */
+export function clearStaleDevSession(): void {
+  if (!import.meta.env.DEV) return;
+
+  const lastSessionId = localStorage.getItem(DEV_SESSION_ID_KEY);
+  if (lastSessionId !== __DEV_SESSION_ID__) {
+    clearStoredUser();
+    localStorage.setItem(DEV_SESSION_ID_KEY, __DEV_SESSION_ID__);
+  }
 }
 
 /** Returns true if JWT `exp` is in the past (or token is not a JWT). */

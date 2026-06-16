@@ -31,7 +31,6 @@ import type { RestaurantApiDto, CreateRestaurantApiCommand, UpdateRestaurantApiC
 import type { ApiResponse } from '../../types/common';
 import type { PaginationData } from '../../types/reservation';
 import DashboardShell from '../dashboard/DashboardShell';
-import { ToastStack, createToast, type ToastMessage } from '../common/Toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { APP_ROUTES } from '../../constants/routes';
 
@@ -280,16 +279,11 @@ export default function SuperAdmin() {
   const [selected, setSelected] = useState<RestaurantApiDto | null>(null);
   const [form, setForm] = useState<RestaurantForm>(emptyForm());
   const [submitting, setSubmitting] = useState(false);
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
   const pushToast = (text: string, type: 'success' | 'error' = 'success') => {
-    setToasts((prev) => [...prev, createToast(text, type)]);
-  };
-
-  const dismissToast = (id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    if (type === 'error') console.error(text);
   };
 
   const fetchRestaurants = useCallback(async () => {
@@ -340,7 +334,7 @@ export default function SuperAdmin() {
       name: r.name,
       address: r.address || '',
       phone: r.phone || '',
-      openingHours: r.openingHours || '9:00 AM - 10:00 PM',
+      openingHours: r.openingHours || '',
       ownerEmail: '',
       isActive: r.isActive,
     });
@@ -392,11 +386,11 @@ export default function SuperAdmin() {
     try {
       const body: UpdateRestaurantApiCommand = {
         restaurantId: selected.id,
-        address: form.address,
-        phone: form.phone,
         isActive: form.isActive,
-        openingHours: form.openingHours,
       };
+      if (form.address.trim()) body.address = form.address.trim();
+      if (form.phone.trim()) body.phone = form.phone.trim();
+      if (form.openingHours.trim()) body.openingHours = form.openingHours.trim();
       const response = await apiPatch<ApiResponse<RestaurantApiDto>>(API.restaurant.update, body);
       unwrapApiResponse(response);
       pushToast('Restaurant updated successfully');
@@ -743,30 +737,32 @@ export default function SuperAdmin() {
                 )}
                 {modal === 'edit' && (
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4">
-                    <p className="text-sm text-blue-700">Restaurant name cannot be changed. Update other details below.</p>
+                    <p className="text-sm text-blue-700">
+                      Restaurant name cannot be changed. Leave Address, Phone, or Opening Hours blank to keep their current values.
+                    </p>
                   </div>
                 )}
                 <ModernField
                   label="Address"
                   value={form.address}
                   onChange={(v) => setForm({ ...form, address: v })}
-                  placeholder="Full address"
-                  required
+                  placeholder={modal === 'edit' ? 'Leave blank to keep current address' : 'Full address'}
+                  required={modal === 'add'}
                   icon={FaMapMarkerAlt}
                 />
                 <ModernField
                   label="Phone"
                   value={form.phone}
                   onChange={(v) => setForm({ ...form, phone: v })}
-                  placeholder="+1 234 567 8900"
-                  required
+                  placeholder={modal === 'edit' ? 'Leave blank to keep current phone' : '+1 234 567 8900'}
+                  required={modal === 'add'}
                   icon={FaPhone}
                 />
                 <ModernField
                   label="Opening Hours"
                   value={form.openingHours}
                   onChange={(v) => setForm({ ...form, openingHours: v })}
-                  placeholder="9:00 AM - 10:00 PM"
+                  placeholder={modal === 'edit' ? 'Leave blank to keep current hours' : '9:00 AM - 10:00 PM'}
                   icon={FaClock}
                 />
                 <label className="flex items-center justify-between p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition">
@@ -807,8 +803,6 @@ export default function SuperAdmin() {
           </div>
         </div>
       )}
-
-      <ToastStack toasts={toasts} onDismiss={dismissToast} />
 
       <style>{`
         @keyframes fadeIn {

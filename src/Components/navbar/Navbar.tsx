@@ -19,7 +19,7 @@ export default function Navbar() {
   const [notifLoading, setNotifLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const notifRef = useRef<HTMLDivElement | null>(null);
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -38,13 +38,13 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    
+
     setTimeout(() => {
-      logout();
       setShowLogoutModal(false);
       setIsProfileDropdownOpen(false);
       setIsLoggingOut(false);
-      navigate(APP_ROUTES.login);
+      // Route through the centralized logout screen so history/back cannot restore the session.
+      navigate(APP_ROUTES.logout);
     }, 1000);
   };
 

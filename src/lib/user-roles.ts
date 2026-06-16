@@ -1,4 +1,5 @@
 import { getRolesFromToken } from './jwt-claims';
+import { APP_ROUTES } from '../constants/routes';
 
 export const USER_ROLES = {
   superAdmin: ['SuperAdmin', 'Admin', 'Administrator', 'superadmin', 'administrator'],
@@ -33,4 +34,12 @@ export function getPrimaryRoleLabel(token: string): string {
   const roles = getRolesFromToken(token);
   if (roles.length === 0) return 'User';
   return roles[0];
+}
+
+/** Where a user should land after authenticating, based on their role. */
+export function getPostLoginRoute(token: string): string {
+  if (isSuperAdmin(token)) return APP_ROUTES.superAdmin;
+  if (isManager(token)) return APP_ROUTES.managerDashboard;
+  if (isStaff(token)) return APP_ROUTES.staffDashboard;
+  return APP_ROUTES.home;
 }

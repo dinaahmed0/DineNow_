@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { FaQuoteLeft, FaChevronLeft, FaChevronRight, FaUser, FaMapMarkerAlt, FaCalendarAlt,FaShare,FaHeart} from 'react-icons/fa';
 import { Link } from 'react-router-dom';
+import { APP_ROUTES } from '../../constants/routes';
 
 
 interface Review {
@@ -295,7 +296,7 @@ export default function UserReviewsSpotlight() {
           <p className="text-gray-600 mb-4">
             Had a great experience at one of our restaurants?
           </p>
-          <Link to= "/profile?tab=past">
+          <Link to={`${APP_ROUTES.myReservations}?tab=past`}>
           <button className="bg-gradient-to-r from-[#6B8A62] to-[#5A7352] hover:shadow-lg hover:scale-105 transition-all duration-300 text-white px-8 py-3 rounded-lg font-bold">
             Share Your Feedback →
           </button>

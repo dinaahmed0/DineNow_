@@ -54,7 +54,7 @@ export const API = {
     byId: (id: number) => `/api/Restaurant/${id}`,
     create: '/api/Restaurant',
     update: '/api/Restaurant/Update',
-    delete: '/api/Restaurant',
+    delete: (id: number) => `/api/Restaurant?id=${id}`,
     addReview: '/api/Restaurant/add-review',
     getReviews: '/api/Restaurant/get-reviews',
   },
@@ -64,5 +64,19 @@ export const API = {
     update: '/api/Table',
     byNumber: (tableNum: number) => `/api/Table/${tableNum}`,
     available: '/api/Table/available',
+  },
+  category: {
+    list: '/api/Category',
+    byId: (id: number) => `/api/Category/${id}`,
+    create: '/api/Category',
+    update: '/api/Category',
+    delete: (id: number) => `/api/Category/${id}`,
+  },
+  menuItem: {
+    byId: (id: number) => `/api/MenuItem/${id}`,
+    byCategory: (categoryId: number) => `/api/MenuItem/category/${categoryId}`,
+    create: '/api/MenuItem',
+    update: '/api/MenuItem',
+    delete: (id: number) => `/api/MenuItem/${id}`,
   },
 } as const;

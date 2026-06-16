@@ -11,13 +11,14 @@ import {
 } from '@heroicons/react/24/outline';
 import { StarIcon } from '@heroicons/react/24/solid';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FaChevronLeft, FaCalendarAlt } from 'react-icons/fa';
 import { APP_ROUTES } from '../../constants/routes';
 import { cancelReservation, getAllUserReservations, updateReservationTime } from '../../services/reservation';
-import { addReview } from '../../services/restaurant';
+import { addReview, getRestaurantById } from '../../services/restaurant';
 import type { ReservationUserItem } from '../../types/reservation';
 import type { AddReviewCommand } from '../../types/restaurant';
+import type { ConfirmationState } from '../reservation/ConfirmationWrapper';
 import {
   STATUS_GROUPS,
   matchesStatusGroup,
@@ -81,9 +82,10 @@ const canBeCancelled = (status: string | number) =>
 const MyReservations = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
-  
+  const [searchParams] = useSearchParams();
+
   // State
-  const [showPast, setShowPast] = useState(false);
+  const [showPast, setShowPast] = useState(() => searchParams.get('tab') === 'past');
   const [selectedReservation, setSelectedReservation] = useState<number | null>(null);
   const [reservations, setReservations] = useState<ReservationUserItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -226,6 +228,57 @@ const MyReservations = () => {
       alert(err instanceof Error ? err.message : 'Failed to submit review');
     } finally {
       setIsSubmittingReview(false);
+    }
+  };
+
+  // View confirmation ticket
+  const handleViewConfirmation = async (reservation: ReservationUserItem) => {
+    try {
+      const restaurant = await getRestaurantById(reservation.restaurantId);
+      const reservationData: ConfirmationState = {
+        formData: {
+          email: user?.email,
+          date: reservation.startDateTime.slice(0, 10),
+          time: reservation.startDateTime.slice(11, 16),
+          partySize: reservation.numberOfGuests,
+        },
+        restaurantData: {
+          name: restaurant.name,
+          image: restaurant.image,
+          cuisine: restaurant.cuisine,
+          location: restaurant.location,
+          rating: restaurant.rating,
+        },
+        orderedFood: [],
+        paymentCompleted: false,
+        createdReservation: reservation,
+      };
+      navigate(APP_ROUTES.confirmation, { state: { reservationData } });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to load confirmation ticket');
+    }
+  };
+
+  // Reserve again (cancelled reservations)
+  const handleReserveAgain = async (reservation: ReservationUserItem) => {
+    try {
+      const restaurant = await getRestaurantById(reservation.restaurantId);
+      navigate('/reservation', {
+        state: {
+          restaurant: {
+            id: restaurant.id,
+            name: restaurant.name,
+            cuisine: restaurant.cuisine,
+            rating: restaurant.rating,
+            reviewCount: restaurant.reviewCount,
+            location: restaurant.location,
+            priceRange: restaurant.priceRange,
+            image: restaurant.image,
+          },
+        },
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to load restaurant details');
     }
   };
 
@@ -412,6 +465,7 @@ const MyReservations = () => {
                           setRescheduleTime(reservation.startDateTime.slice(11, 16));
                           setShowRescheduleModal(true);
                         }}
+                        onViewConfirmation={() => handleViewConfirmation(reservation)}
                       />
                     ))}
                   </div>
@@ -444,6 +498,7 @@ const MyReservations = () => {
                           setRescheduleTime(reservation.startDateTime.slice(11, 16));
                           setShowRescheduleModal(true);
                         }}
+                        onViewConfirmation={() => handleViewConfirmation(reservation)}
                       />
                     ))}
                   </div>
@@ -467,6 +522,8 @@ const MyReservations = () => {
                     setSelectedForReview(reservation);
                     setShowReviewModal(true);
                   }}
+                  onViewConfirmation={() => handleViewConfirmation(reservation)}
+                  onReserveAgain={() => handleReserveAgain(reservation)}
                 />
               ))}
             </div>
@@ -594,12 +651,14 @@ const ReservationCard = ({
   onToggleExpand,
   onCancel,
   onReschedule,
+  onViewConfirmation,
 }: {
   reservation: ReservationUserItem;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onCancel: () => void;
   onReschedule: () => void;
+  onViewConfirmation: () => void;
 }) => {
   const statusStyle = getStatusStyles(reservation.status);
   const pending = isPendingApproval(reservation.status);
@@ -696,6 +755,19 @@ const ReservationCard = ({
               </button>
             </>
           )}
+          <button
+            type="button"
+            onClick={onViewConfirmation}
+            disabled={pending}
+            title={pending ? 'Available once staff approves your reservation' : undefined}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+              pending
+                ? 'border border-gray-200 text-gray-400 cursor-not-allowed'
+                : 'border border-[#6B8A62] text-[#6B8A62] hover:bg-[#6B8A62]/10'
+            }`}
+          >
+            View confirmation ticket
+          </button>
         </div>
 
         {isExpanded && (
@@ -722,11 +794,17 @@ const ReservationCard = ({
 const PastReservationCard = ({
   reservation,
   onReview,
+  onViewConfirmation,
+  onReserveAgain,
 }: {
   reservation: ReservationUserItem;
   onReview: () => void;
+  onViewConfirmation: () => void;
+  onReserveAgain: () => void;
 }) => {
   const statusStyle = getStatusStyles(reservation.status);
+  const isCompleted = matchesStatusGroup(['completed'], reservation.status);
+  const isCancelled = matchesStatusGroup(['cancelled'], reservation.status);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-all">
@@ -747,14 +825,36 @@ const PastReservationCard = ({
             {reservation.numberOfGuests} guests · #{reservation.bookNumber}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onReview}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#6B8A62]/10 text-[#6B8A62] rounded-xl hover:bg-[#6B8A62]/20 text-sm font-semibold transition-colors shrink-0"
-        >
-          <StarIcon className="w-4 h-4" />
-          Leave a review
-        </button>
+        <div className="flex flex-wrap gap-3 shrink-0">
+          {isCompleted && (
+          <button
+            type="button"
+            onClick={onViewConfirmation}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-[#6B8A62] text-[#6B8A62] rounded-xl hover:bg-[#6B8A62]/10 text-sm font-semibold transition-colors"
+          >
+            View confirmation ticket
+          </button>
+          )}
+          {isCompleted && (
+          <button
+            type="button"
+            onClick={onReview}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#6B8A62]/10 text-[#6B8A62] rounded-xl hover:bg-[#6B8A62]/20 text-sm font-semibold transition-colors"
+          >
+            <StarIcon className="w-4 h-4" />
+            Leave a review
+          </button>
+          )}
+          {isCancelled && (
+          <button
+            type="button"
+            onClick={onReserveAgain}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#6B8A62] text-white rounded-xl hover:bg-[#5A7352] text-sm font-semibold transition-colors"
+          >
+            Reserve again
+          </button>
+          )}
+        </div>
       </div>
     </div>
   );

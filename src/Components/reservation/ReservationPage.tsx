@@ -251,23 +251,17 @@ export default function ReservationPage() {
         notes: notes || 'No special requests',
       };
 
-      const { response, reservation } = await createReservationRequest(payload);
+      const { response } = await createReservationRequest(payload);
 
       if (!response.succeeded) {
         throw new Error(response.message || response.errors?.[0] || 'Failed to create reservation');
       }
 
       setIsSubmitting(false);
-      navigate(APP_ROUTES.confirmation, {
+      navigate(APP_ROUTES.myReservations, {
         state: {
-          reservationData: {
-            formData,
-            restaurantData,
-            orderedFood,
-            paymentCompleted,
-            createdReservation: reservation,
-            apiMessage: response.message,
-          },
+          reservationCreated: true,
+          apiMessage: response.message,
         },
       });
     } catch (error) {
@@ -617,9 +611,10 @@ export default function ReservationPage() {
               ) : step === 2 ? (
                 // Step 2: Food Ordering (Optional)
                 <div>
-                  <FoodOrderingStep 
+                  <FoodOrderingStep
                     onFoodOrderUpdate={handleFoodOrderUpdate}
                     partySize={typeof formData.partySize === 'number' ? formData.partySize : 1}
+                    restaurantId={Number(restaurantData.id)}
                   />
                   
                   <div className="flex gap-4 pt-6">

@@ -1,11 +1,13 @@
-import { useState, type FC } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Slider from 'react-slick';
-import { FaHeart, FaRegHeart, FaStar, FaMapMarkerAlt, FaChevronRight, FaChevronLeft, FaTimes, FaClock, FaPhoneAlt } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaStar, FaMapMarkerAlt, FaChevronRight, FaChevronLeft, FaTimes, FaClock, FaPhoneAlt, FaSpinner } from 'react-icons/fa';
 import type { CustomArrowProps } from 'react-slick';
 import { Button } from 'flowbite-react';
 import ProtectedButton from '../auth/ProtectedButton';
 import { Link } from 'react-router-dom';
+import { getAllRestaurants } from '../../services/restaurant';
+import type { ReturnRestaurantQuery } from '../../types/restaurant';
 
 
 // ✅ Custom Arrows
@@ -34,7 +36,6 @@ function PrevArrow(props: CustomArrowProps) {
 }
 
 
-// Mock restaurant data
 interface Restaurant {
   id: number;
   name: string;
@@ -54,86 +55,28 @@ interface Restaurant {
   features?: string[];
 }
 
-const restaurantsData: Restaurant[] = [
-  {
-    id: 1,
-    name: "Stereo Restaurant & Café",
-    cuisine: "• Restaurant • Cafe",
-    rating: 4.6,
-    reviewCount: 1120,
-    priceRange: "$$",
-    image: "https://mir-s3-cdn-cf.behance.net/project_modules/max_1200/0d86a7124190739.60ff10b7a28ca.jpg",
-    location: "Central Tanta",
-    deliveryTime: "25-35 min",
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=400&fit=crop';
+
+function restaurantQueryToSlide(r: ReturnRestaurantQuery): Restaurant {
+  return {
+    id: r.id,
+    name: r.name,
+    cuisine: r.cuisine || 'Restaurant',
+    rating: r.rating,
+    reviewCount: r.reviewCount,
+    priceRange: r.priceRange || '$$',
+    image: r.image || DEFAULT_IMAGE,
+    location: r.location || r.address || '',
+    deliveryTime: r.hours || 'Hours not listed',
     isFavorite: false,
-    discount: "10% OFF"
-  },
-  {
-    id: 2,
-    name: "El Wataneya Restaurant",
-    cuisine: "• Restaurant",
-    rating: 4.3,
-    reviewCount: 200,
-    priceRange: "$$$",
-    image: "https://mir-s3-cdn-cf.behance.net/project_modules/fs/f4c343194937129.66047ff7ab940.jpg",
-    location: "Downtown Tanta",
-    deliveryTime: "30-40 min",
-    isFavorite: true,
-    discount: null
-  },
-  {
-    id: 3,
-    name: "Virgo",
-    cuisine: "• Cafe",
-    rating: 4.2,
-    reviewCount: 350,
-    priceRange: "$$",
-    image: "https://mir-s3-cdn-cf.behance.net/project_modules/fs/8ab130134731031.61db7d2b2864d.jpg",
-    location: "Tanta",
-    deliveryTime: "20-30 min",
-    isFavorite: false,
-    discount: "Free Delivery"
-  },
-  {
-    id: 4,
-    name: "Shrimp Pirates",
-    cuisine: "Seafood • Sandwiches",
-    rating: 5.0,
-    reviewCount: 95,
-    priceRange: "$$",
-    image: "https://images.unsplash.com/photo-seafood-shrimp?w=400&h=300&fit=crop",
-    location: "Tanta",
-    deliveryTime: "15-25 min",
-    isFavorite: false,
-    discount: "15% OFF"
-  },
-  {
-    id: 5,
-    name: "Bread & Dessert",
-    cuisine: "• Restaurant",
-    rating: 4.4,
-    reviewCount: 180,
-    priceRange: "$$",
-    image: "https://images.unsplash.com/photo-pizza-restaurant?w=400&h=300&fit=crop",
-    location: "Tanta",
-    deliveryTime: "20-30 min",
-    isFavorite: true,
-    discount: null
-  },
-  {
-    id: 6,
-    name: "HiRisk",
-    cuisine: "• Restaurant • Cafe",
-    rating: 4.8,
-    reviewCount: 140,
-    priceRange: "$$$",
-    image: "https://images.unsplash.com/photo-seafood-grill?w=400&h=300&fit=crop",
-    location: "Tanta",
-    deliveryTime: "35-45 min",
-    isFavorite: false,
-    discount: "10% OFF"
-  }
-];
+    discount: null,
+    description: r.description,
+    address: r.address,
+    phone: r.phone,
+    hours: r.hours,
+    features: r.features,
+  };
+}
 
 interface SliderRestaurantModalProps {
   restaurant: Restaurant | null;
@@ -381,8 +324,34 @@ function RestaurantCard({
 export default function MainSlider() {
   const navigate = useNavigate();
   const [showNotification, setShowNotification] = useState<string | null>(null);
-  const [restaurants, setRestaurants] = useState(restaurantsData);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchRestaurants() {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const result = await getAllRestaurants(1, 50);
+        if (!cancelled) {
+          setRestaurants(result.restaurants.filter((r) => r.isActive).map(restaurantQueryToSlide));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load restaurants');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void fetchRestaurants();
+    return () => { cancelled = true; };
+  }, []);
 
   // Slider configuration
   const settings = {
@@ -459,16 +428,26 @@ export default function MainSlider() {
       </div>
 
         {/* Carousel */}
-        <Slider {...settings}>
-          {restaurants.map((restaurant) => (
-            <RestaurantCard
-              key={restaurant.id}
-              restaurant={restaurant}
-              onFavoriteToggle={handleFavoriteToggle}
-              onViewDetails={setSelectedRestaurant}
-            />
-          ))}
-        </Slider>
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <FaSpinner className="animate-spin text-3xl text-[#6B8A62]" />
+          </div>
+        ) : error ? (
+          <p className="text-center text-red-500 py-12">{error}</p>
+        ) : restaurants.length === 0 ? (
+          <p className="text-center text-gray-400 py-12">No spots available yet — check back soon!</p>
+        ) : (
+          <Slider {...settings}>
+            {restaurants.map((restaurant) => (
+              <RestaurantCard
+                key={restaurant.id}
+                restaurant={restaurant}
+                onFavoriteToggle={handleFavoriteToggle}
+                onViewDetails={setSelectedRestaurant}
+              />
+            ))}
+          </Slider>
+        )}
 
         {selectedRestaurant && (
           <SliderRestaurantModal

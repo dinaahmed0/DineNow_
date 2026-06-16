@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, Label, TextInput, Alert, Spinner } from 'flowbite-react';
 import { HiLockClosed } from 'react-icons/hi';
 import { changePassword } from '../../services/auth';
-import { useAuth } from '../../contexts/AuthContext';
+import { APP_ROUTES } from '../../constants/routes';
 import * as yup from 'yup';
 
 const StyledLockIcon = () => <HiLockClosed className="text-[#6B8A62]" />;
@@ -51,7 +51,6 @@ const calculatePasswordStrength = (password: string): { score: number; label: st
 
 export default function ChangePassword() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
   const [formData, setFormData] = useState<FormData>({
     currentPassword: '',
     newPassword: '',
@@ -110,12 +109,12 @@ export default function ChangePassword() {
 
       
       if (response.succeeded) {
-        // Log out user and redirect to login
-        logout();
-        navigate('/login', { 
-          state: { 
-            message: 'Password changed successfully! Please login with your new password.' 
-          } 
+        // Log out and redirect to login — route through the centralized logout
+        // screen so history/back cannot restore the now-stale session.
+        navigate(APP_ROUTES.logout, {
+          state: {
+            message: 'Password changed successfully! Please login with your new password.',
+          },
         });
       } else {
         setSubmitError(response.message || 'Failed to change password');

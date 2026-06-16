@@ -14,6 +14,9 @@ import {
   FaSpinner,
   FaUtensils,
   FaEdit,
+  FaClipboardList,
+  FaPlus,
+  FaSave,
 } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRestaurantById } from '../../services/restaurant';
@@ -29,10 +32,21 @@ import {
   inviteStaff,
 } from '../../services/auth';
 import { createTable, deleteTable, getTables, updateTable } from '../../services/table';
+import {
+  createCategory,
+  createMenuItem,
+  deleteCategory,
+  deleteMenuItem,
+  getCategories,
+  getMenuItemsByCategory,
+  updateCategory,
+  updateMenuItem,
+} from '../../services/menu';
 import type { ReservationStaffItem } from '../../types/reservation';
 import type { StaffMember } from '../../types/auth';
 import type { TableItem } from '../../types/table';
 import type { ReturnRestaurantQuery } from '../../types/restaurant';
+import type { MenuCategory, MenuItem } from '../../types/menu';
 import { resolveRestaurantId } from '../../lib/resolve-restaurant-id';
 import {
   formatStatusLabel,
@@ -62,14 +76,13 @@ const getInitials = (name?: string) => {
   return initials.toUpperCase();
 };
 import DashboardShell, { StatCard } from '../dashboard/DashboardShell';
-import { ToastStack, createToast, type ToastMessage } from '../common/Toast';
 import { APP_ROUTES } from '../../constants/routes';
 
 type TabKey = 'pending' | 'active' | 'completed' | 'inactive';
-type Section = 'reservations' | 'staff' | 'tables';
+type Section = 'reservations' | 'staff' | 'tables' | 'menu';
 
 export default function ManagerDashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [restaurantId, setRestaurantId] = useState<number | null>(null);
@@ -84,17 +97,22 @@ export default function ManagerDashboard() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId] = useState<number | null>(null);
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [newTable, setNewTable] = useState({ tableNumber: '', capacity: '' });
   const [editingTableNum, setEditingTableNum] = useState<number | null>(null);
   const [editCapacity, setEditCapacity] = useState('');
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [menuItemsByCategory, setMenuItemsByCategory] = useState<Record<number, MenuItem[]>>({});
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+  const [newMenuItem, setNewMenuItem] = useState<
+    Record<number, { name: string; description: string; price: string }>
+  >({});
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [editItem, setEditItem] = useState({ name: '', description: '', price: '' });
 
   const pushToast = (text: string, type: 'success' | 'error' = 'success') => {
-    setToasts((prev) => [...prev, createToast(text, type)]);
-  };
-
-  const dismissToast = (id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    if (type === 'error') console.error(text);
   };
 
   const fetchStaff = useCallback(async () => {
@@ -119,6 +137,21 @@ export default function ManagerDashboard() {
     }
   }, []);
 
+  const fetchMenu = useCallback(async (rid: number | null) => {
+    if (!rid) return;
+    const catResponse = await getCategories(rid);
+    if (!catResponse.succeeded) return;
+    const cats = catResponse.data ?? [];
+    setCategories(cats);
+    const entries = await Promise.all(
+      cats.map(async (c) => {
+        const itemsResponse = await getMenuItemsByCategory(c.id);
+        return [c.id, itemsResponse.succeeded ? itemsResponse.data ?? [] : []] as const;
+      })
+    );
+    setMenuItemsByCategory(Object.fromEntries(entries));
+  }, []);
+
   const loadAll = useCallback(async () => {
     if (!user?.token) return;
     setLoading(true);
@@ -130,13 +163,13 @@ export default function ManagerDashboard() {
         const r = await getRestaurantById(rid);
         setRestaurant(r);
       }
-      await Promise.all([fetchStaff(), fetchReservations(), fetchTables()]);
+      await Promise.all([fetchStaff(), fetchReservations(), fetchTables(), fetchMenu(rid)]);
     } catch (err) {
       pushToast(err instanceof Error ? err.message : 'Failed to load dashboard', 'error');
     } finally {
       setLoading(false);
     }
-  }, [user?.token, fetchStaff, fetchReservations, fetchTables]);
+  }, [user?.token, fetchStaff, fetchReservations, fetchTables, fetchMenu]);
 
   useEffect(() => {
     void loadAll();
@@ -276,9 +309,120 @@ export default function ManagerDashboard() {
     }
   };
 
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) {
+      pushToast('Enter a category name', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const response = await createCategory({ name: newCategoryName.trim() });
+      if (!response.succeeded) throw new Error(response.message || 'Failed to add category');
+      pushToast(`Category "${newCategoryName.trim()}" added`);
+      setNewCategoryName('');
+      await fetchMenu(restaurantId);
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Failed to add category', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateCategory = async (id: number) => {
+    if (!editCategoryName.trim()) {
+      pushToast('Enter a category name', 'error');
+      return;
+    }
+    try {
+      const response = await updateCategory({ id, name: editCategoryName.trim() });
+      if (!response.succeeded) throw new Error(response.message || 'Update failed');
+      pushToast('Category updated');
+      setEditingCategoryId(null);
+      setEditCategoryName('');
+      await fetchMenu(restaurantId);
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Failed to update category', 'error');
+    }
+  };
+
+  const handleDeleteCategory = async (category: MenuCategory) => {
+    if (!window.confirm(`Delete category "${category.name}"? This will also remove its menu items.`)) return;
+    try {
+      const response = await deleteCategory(category.id);
+      if (!response.succeeded) throw new Error(response.message || 'Failed to delete category');
+      pushToast(`Category "${category.name}" removed`);
+      await fetchMenu(restaurantId);
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Failed to delete category', 'error');
+    }
+  };
+
+  const handleAddMenuItem = async (e: React.FormEvent, categoryId: number) => {
+    e.preventDefault();
+    const draft = newMenuItem[categoryId] ?? { name: '', description: '', price: '' };
+    const price = Number(draft.price);
+    if (!draft.name.trim() || !price || price <= 0) {
+      pushToast('Enter item name and a valid price', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const response = await createMenuItem({
+        name: draft.name.trim(),
+        description: draft.description.trim(),
+        price,
+        categoryId,
+      });
+      if (!response.succeeded) throw new Error(response.message || 'Failed to add item');
+      pushToast(`"${draft.name.trim()}" added`);
+      setNewMenuItem((prev) => ({ ...prev, [categoryId]: { name: '', description: '', price: '' } }));
+      await fetchMenu(restaurantId);
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Failed to add item', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateMenuItem = async (id: number) => {
+    const price = Number(editItem.price);
+    if (!editItem.name.trim() || !price || price <= 0) {
+      pushToast('Enter item name and a valid price', 'error');
+      return;
+    }
+    try {
+      const response = await updateMenuItem({
+        id,
+        name: editItem.name.trim(),
+        description: editItem.description.trim(),
+        price,
+      });
+      if (!response.succeeded) throw new Error(response.message || 'Update failed');
+      pushToast('Item updated');
+      setEditingItemId(null);
+      setEditItem({ name: '', description: '', price: '' });
+      await fetchMenu(restaurantId);
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Failed to update item', 'error');
+    }
+  };
+
+  const handleDeleteMenuItem = async (item: MenuItem) => {
+    if (!window.confirm(`Delete "${item.name}"?`)) return;
+    try {
+      const response = await deleteMenuItem(item.id);
+      if (!response.succeeded) throw new Error(response.message || 'Failed to delete item');
+      pushToast(`"${item.name}" removed`);
+      await fetchMenu(restaurantId);
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Failed to delete item', 'error');
+    }
+  };
+
   const handleLogout = () => {
-    logout();
-    navigate(APP_ROUTES.login);
+    // Route through the centralized logout screen so history/back cannot restore the session.
+    navigate(APP_ROUTES.logout);
   };
 
   if (loading) {
@@ -332,6 +476,7 @@ export default function ManagerDashboard() {
               ['reservations', 'Reservations', FaCalendarAlt, pendingCount],
               ['staff', 'Staff team', FaUsers, 0],
               ['tables', 'Tables', FaUtensils, 0],
+              ['menu', 'Menu', FaClipboardList, 0],
             ] as const
           ).map(([key, label, Icon, badge]) => (
             <button
@@ -647,6 +792,246 @@ export default function ManagerDashboard() {
             </form>
           </div>
         )}
+
+        {section === 'menu' && (
+          <div className="space-y-6">
+            <form
+              onSubmit={handleAddCategory}
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col sm:flex-row gap-3 sm:items-end"
+            >
+              <div className="flex-1">
+                <label className="block text-sm text-gray-600 mb-1">New category name</label>
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="e.g. Desserts"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#6B8A62]"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#6B8A62] text-white rounded-xl text-sm font-medium hover:bg-[#5A7352] disabled:opacity-50"
+              >
+                <FaPlus /> Add category
+              </button>
+            </form>
+
+            {categories.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center text-gray-400">
+                <FaClipboardList className="text-3xl mx-auto mb-2" />
+                No menu categories yet
+              </div>
+            ) : (
+              categories.map((cat) => (
+                <div key={cat.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex justify-between items-center mb-4 gap-2">
+                    {editingCategoryId === cat.id ? (
+                      <div className="flex-1 flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={editCategoryName}
+                          onChange={(e) => setEditCategoryName(e.target.value)}
+                          className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#6B8A62]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleUpdateCategory(cat.id)}
+                          className="px-3 py-1.5 bg-[#6B8A62] text-white text-sm rounded-lg hover:bg-[#5A7352] inline-flex items-center gap-1"
+                        >
+                          <FaSave /> Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingCategoryId(null)}
+                          className="px-3 py-1.5 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                          <FaClipboardList className="text-[#6B8A62]" />
+                          {cat.name}
+                        </h3>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingCategoryId(cat.id);
+                              setEditCategoryName(cat.name);
+                            }}
+                            className="text-[#6B8A62] hover:bg-[#6B8A62]/10 p-2 rounded-lg"
+                            title="Rename category"
+                          >
+                            <FaEdit />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCategory(cat)}
+                            className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                            title="Delete category"
+                          >
+                            <FaTrashAlt />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {(menuItemsByCategory[cat.id] ?? []).length === 0 ? (
+                    <p className="text-gray-400 text-sm py-2">No items in this category</p>
+                  ) : (
+                    <div className="grid sm:grid-cols-2 gap-3 mb-4">
+                      {(menuItemsByCategory[cat.id] ?? []).map((item) => (
+                        <div key={item.id} className="p-4 border border-gray-100 rounded-xl space-y-2 hover:shadow-md transition">
+                          {editingItemId === item.id ? (
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                value={editItem.name}
+                                onChange={(e) => setEditItem({ ...editItem, name: e.target.value })}
+                                placeholder="Name"
+                                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#6B8A62]"
+                              />
+                              <textarea
+                                value={editItem.description}
+                                onChange={(e) => setEditItem({ ...editItem, description: e.target.value })}
+                                placeholder="Description"
+                                rows={2}
+                                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#6B8A62]"
+                              />
+                              <input
+                                type="number"
+                                min={0}
+                                value={editItem.price}
+                                onChange={(e) => setEditItem({ ...editItem, price: e.target.value })}
+                                placeholder="Price"
+                                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#6B8A62]"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleUpdateMenuItem(item.id)}
+                                  className="flex-1 px-3 py-1.5 bg-[#6B8A62] text-white text-sm rounded-lg hover:bg-[#5A7352] inline-flex items-center justify-center gap-1"
+                                >
+                                  <FaSave /> Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingItemId(null)}
+                                  className="flex-1 px-3 py-1.5 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between items-start gap-2">
+                              <div>
+                                <p className="font-semibold text-gray-900">{item.name}</p>
+                                {item.description && (
+                                  <p className="text-sm text-gray-500">{item.description}</p>
+                                )}
+                                <p className="text-sm font-medium text-[#6B8A62] mt-1">${item.price.toFixed(2)}</p>
+                              </div>
+                              <div className="flex gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingItemId(item.id);
+                                    setEditItem({
+                                      name: item.name,
+                                      description: item.description,
+                                      price: String(item.price),
+                                    });
+                                  }}
+                                  className="text-[#6B8A62] hover:bg-[#6B8A62]/10 p-2 rounded-lg"
+                                  title="Edit item"
+                                >
+                                  <FaEdit />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteMenuItem(item)}
+                                  className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                                  title="Delete item"
+                                >
+                                  <FaTrashAlt />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <form
+                    onSubmit={(e) => handleAddMenuItem(e, cat.id)}
+                    className="border-t border-gray-100 pt-4 grid sm:grid-cols-4 gap-2 items-end"
+                  >
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs text-gray-500 mb-1">Item name</label>
+                      <input
+                        type="text"
+                        value={newMenuItem[cat.id]?.name ?? ''}
+                        onChange={(e) =>
+                          setNewMenuItem((prev) => ({
+                            ...prev,
+                            [cat.id]: { ...(prev[cat.id] ?? { name: '', description: '', price: '' }), name: e.target.value },
+                          }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#6B8A62]"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Description</label>
+                      <input
+                        type="text"
+                        value={newMenuItem[cat.id]?.description ?? ''}
+                        onChange={(e) =>
+                          setNewMenuItem((prev) => ({
+                            ...prev,
+                            [cat.id]: { ...(prev[cat.id] ?? { name: '', description: '', price: '' }), description: e.target.value },
+                          }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#6B8A62]"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        value={newMenuItem[cat.id]?.price ?? ''}
+                        onChange={(e) =>
+                          setNewMenuItem((prev) => ({
+                            ...prev,
+                            [cat.id]: { ...(prev[cat.id] ?? { name: '', description: '', price: '' }), price: e.target.value },
+                          }))
+                        }
+                        placeholder="Price"
+                        className="w-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#6B8A62]"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="px-3 py-2 bg-[#6B8A62] text-white rounded-xl text-sm font-medium hover:bg-[#5A7352] disabled:opacity-50 inline-flex items-center gap-1"
+                      >
+                        <FaPlus />
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </DashboardShell>
 
       {showInviteModal && (
@@ -691,8 +1076,6 @@ export default function ManagerDashboard() {
           </div>
         </div>
       )}
-
-      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </>
   );
 }

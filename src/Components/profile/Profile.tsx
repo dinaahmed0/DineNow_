@@ -66,7 +66,7 @@ const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [prefs, setPrefs] = useState<LocalProfilePrefs>(DEFAULT_PREFS);
@@ -151,10 +151,10 @@ export default function Profile() {
 
   const handleLogout = () => {
     setIsLoggingOut(true);
-    logout();
     setShowLogoutModal(false);
     setIsLoggingOut(false);
-    navigate(APP_ROUTES.login);
+    // Route through the centralized logout screen so history/back cannot restore the session.
+    navigate(APP_ROUTES.logout);
   };
 
   const closeEditModal = () => {

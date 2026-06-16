@@ -4,6 +4,7 @@ import { loginUser as loginApiCall, refreshToken as refreshApiCall } from '../se
 import type { AuthTokens, LoginResponse } from '../types/auth';
 import {
   AUTH_SESSION_UPDATED_EVENT,
+  clearStaleDevSession,
   clearStoredUser,
   isAccessTokenExpired,
   readStoredUser,
@@ -141,6 +142,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => window.removeEventListener(AUTH_SESSION_UPDATED_EVENT, onSessionUpdated);
   }, []);
 
+  // Keep auth state in sync across browser tabs: logging out (or in) in one
+  // tab clears (or writes) localStorage['user'], which fires 'storage' in
+  // every other tab — but never the tab that made the change.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== 'user') return;
+
+      if (!event.newValue) {
+        logout();
+        return;
+      }
+
+      const stored = readStoredUser();
+      if (stored?.token) {
+        setUser(toAuthUser(stored));
+        setIsAuthenticated(true);
+        setAuthError(null);
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [logout]);
+
   const refreshAccessToken = useCallback(async (sessionUser?: User): Promise<boolean> => {
     const currentUser = sessionUser ?? userRef.current;
 
@@ -178,6 +203,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const initializeAuth = async () => {
       setAuthError(null);
+
+      // In dev, treat every dev-server restart as the start of a new session,
+      // regardless of whether the previously stored token is still valid.
+      clearStaleDevSession();
+
       const stored = readStoredUser();
 
       if (!stored?.token || !stored?.email) {
@@ -195,11 +225,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const tokenTimestamp = localStorage.getItem('tokenTimestamp');
         const isTimestampStale =
           tokenTimestamp && parseInt(tokenTimestamp, 10) < Date.now() - TOKEN_MAX_AGE_MS;
-        const needsRefresh =
-          Boolean(sessionUser.refreshToken) &&
-          (isAccessTokenExpired(sessionUser.token) || isTimestampStale);
+        const isExpired = isAccessTokenExpired(sessionUser.token) || Boolean(isTimestampStale);
 
-        if (needsRefresh) {
+        if (isExpired) {
+          // An expired access token with no refresh token can never become valid again —
+          // treating it as authenticated would let protected pages render and then 401
+          // on every request. Require a fresh login instead.
+          if (!sessionUser.refreshToken) {
+            setAuthError('Your session has expired. Please sign in again.');
+            clearStoredUser();
+            if (!cancelled) setIsLoading(false);
+            return;
+          }
+
           const updatedUser = await refreshTokensForUser(sessionUser);
           if (cancelled) return;
 
