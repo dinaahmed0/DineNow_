@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent, useCallback, useMemo } from 'react';
 import { Card, Label, TextInput, Checkbox, Alert, Spinner } from 'flowbite-react';
 import { HiMail, HiLockClosed, HiUser, HiEye, HiEyeOff, HiKey, HiPhone } from 'react-icons/hi';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as yup from 'yup';
 import { registerUser, registerStaff } from '../services/auth';
 import { APP_ROUTES } from '../constants/routes';
@@ -94,15 +94,16 @@ const CustomModal = ({ show, onClose, title, children }: { show: boolean; onClos
 
 export default function ReusableSignup({ type }: ReusableSignupProps) {
   const isStaff = type === 'staff';
-  
+  const [searchParams] = useSearchParams();
+
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
-    email: "",
+    email: searchParams.get('email') ?? "",
     phoneNumber: "",
     password: "",
     confirmPassword: "",
     agreeTerms: false,
-    invitationCode: ""
+    invitationCode: searchParams.get('code') ?? "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});

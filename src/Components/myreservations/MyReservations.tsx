@@ -22,6 +22,7 @@ import type { ConfirmationState } from '../reservation/ConfirmationWrapper';
 import {
   STATUS_GROUPS,
   matchesStatusGroup,
+  normalizeReservationStatus,
   formatStatusLabel,
 } from '../../lib/reservation-status';
 import { getStatusHelperText, isPendingApproval } from '../../lib/reservation-workflow';
@@ -29,34 +30,43 @@ import { getStatusHelperText, isPendingApproval } from '../../lib/reservation-wo
 const POLL_INTERVAL_MS = 25_000;
 
 const getStatusStyles = (status: string | number) => {
+  const normalized = normalizeReservationStatus(status);
   if (matchesStatusGroup(STATUS_GROUPS.active, status)) {
     return {
       bg: 'bg-green-100',
-      text: 'text-green-800',
+      text: 'text-green-700',
       border: 'border-l-green-500',
       icon: <CheckCircleIcon className="w-4 h-4 mr-1" />,
     };
   }
   if (matchesStatusGroup(STATUS_GROUPS.pending, status)) {
     return {
-      bg: 'bg-amber-100',
-      text: 'text-amber-800',
-      border: 'border-l-amber-500',
+      bg: 'bg-yellow-100',
+      text: 'text-yellow-700',
+      border: 'border-l-yellow-500',
       icon: <QuestionMarkCircleIcon className="w-4 h-4 mr-1" />,
     };
   }
-  if (matchesStatusGroup(STATUS_GROUPS.inactive, status)) {
+  if (normalized === 'rejected') {
     return {
-      bg: 'bg-gray-100',
-      text: 'text-gray-600',
-      border: 'border-l-gray-400',
+      bg: 'bg-red-100',
+      text: 'text-red-700',
+      border: 'border-l-red-500',
+      icon: <XMarkIcon className="w-4 h-4 mr-1" />,
+    };
+  }
+  if (normalized === 'cancelled') {
+    return {
+      bg: 'bg-blue-100',
+      text: 'text-blue-700',
+      border: 'border-l-blue-500',
       icon: <XMarkIcon className="w-4 h-4 mr-1" />,
     };
   }
   return {
     bg: 'bg-gray-100',
-    text: 'text-gray-700',
-    border: 'border-l-gray-300',
+    text: 'text-gray-600',
+    border: 'border-l-gray-400',
     icon: null,
   };
 };
@@ -437,12 +447,15 @@ const MyReservations = () => {
               buttonLink={APP_ROUTES.spots}
             />
           ) : (
-            <div className="space-y-8">
+            <div className={`grid gap-6 ${pendingReservations.length > 0 && confirmedUpcoming.length > 0 ? 'lg:grid-cols-2' : ''}`}>
               {pendingReservations.length > 0 && (
                 <section>
                   <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <QuestionMarkCircleIcon className="w-5 h-5 text-amber-600" />
+                    <QuestionMarkCircleIcon className="w-5 h-5 text-yellow-500" />
                     Awaiting staff approval
+                    <span className="ml-auto text-xs font-medium bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
+                      {pendingReservations.length}
+                    </span>
                   </h2>
                   <div className="grid gap-4">
                     {pendingReservations.map((reservation) => (
@@ -476,6 +489,9 @@ const MyReservations = () => {
                   <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                     <CheckCircleIcon className="w-5 h-5 text-green-600" />
                     Confirmed upcoming
+                    <span className="ml-auto text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                      {confirmedUpcoming.length}
+                    </span>
                   </h2>
                   <div className="grid gap-4">
                     {confirmedUpcoming.map((reservation) => (
@@ -669,22 +685,20 @@ const ReservationCard = ({
       className={`bg-white rounded-2xl shadow-sm border border-gray-100 border-l-4 ${statusStyle.border} overflow-hidden hover:shadow-md transition-shadow`}
     >
       <div className="p-5 sm:p-6">
-        {pending && (
-          <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-100 text-sm text-amber-900">
-            {helperText}
-          </div>
-        )}
+        <div className={`flex items-center gap-3 mb-4 px-4 py-2.5 rounded-xl ${statusStyle.bg}`}>
+          <span className={`inline-flex items-center gap-1.5 text-xs font-bold shrink-0 ${statusStyle.text}`}>
+            {statusStyle.icon}
+            {formatStatusLabel(reservation.status)}
+          </span>
+          {helperText && (
+            <span className={`text-xs ${statusStyle.text} opacity-80 border-l-2 border-current pl-3`}>
+              {helperText}
+            </span>
+          )}
+        </div>
         <div className="flex justify-between items-start gap-4">
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h3 className="text-xl font-bold text-gray-900 truncate">{reservation.restaurantName}</h3>
-              <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${statusStyle.bg} ${statusStyle.text}`}
-              >
-                {statusStyle.icon}
-                {formatStatusLabel(reservation.status)}
-              </span>
-            </div>
+            <h3 className="text-xl font-bold text-gray-900 truncate mb-1">{reservation.restaurantName}</h3>
             <p className="text-sm text-gray-500">Confirmation #{reservation.bookNumber}</p>
           </div>
           <button
@@ -813,7 +827,7 @@ const PastReservationCard = ({
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h3 className="text-lg font-semibold text-gray-900">{reservation.restaurantName}</h3>
             <span
-              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${statusStyle.bg} ${statusStyle.text}`}
+              className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${statusStyle.bg} ${statusStyle.text}`}
             >
               {formatStatusLabel(reservation.status)}
             </span>

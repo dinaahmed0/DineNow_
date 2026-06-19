@@ -57,14 +57,18 @@ import {
 } from '../../lib/reservation-status';
 
 const getReservationStatusStyles = (status: string | number) => {
+  const normalized = normalizeReservationStatus(status);
   if (matchesStatusGroup(STATUS_GROUPS.active, status)) {
-    return { badge: 'bg-emerald-100 text-emerald-700', border: 'border-l-emerald-400' };
+    return { badge: 'bg-green-100 text-green-700', border: 'border-l-green-500' };
   }
   if (matchesStatusGroup(STATUS_GROUPS.pending, status)) {
-    return { badge: 'bg-amber-100 text-amber-700', border: 'border-l-amber-400' };
+    return { badge: 'bg-yellow-100 text-yellow-700', border: 'border-l-yellow-500' };
   }
-  if (normalizeReservationStatus(status) === 'completed') {
-    return { badge: 'bg-blue-100 text-blue-700', border: 'border-l-blue-400' };
+  if (normalized === 'rejected') {
+    return { badge: 'bg-red-100 text-red-700', border: 'border-l-red-500' };
+  }
+  if (normalized === 'cancelled') {
+    return { badge: 'bg-blue-100 text-blue-700', border: 'border-l-blue-500' };
   }
   return { badge: 'bg-gray-100 text-gray-500', border: 'border-l-gray-300' };
 };
@@ -116,17 +120,28 @@ export default function ManagerDashboard() {
   };
 
   const fetchStaff = useCallback(async () => {
-    const response = await getStaffMembers();
-    if (response.succeeded && response.data) {
-      setStaffList(response.data);
+    try {
+      const response = await getStaffMembers();
+      if (response.succeeded && response.data) {
+        setStaffList(response.data);
+      } else {
+        setStaffList([]);
+      }
+    } catch {
+      // Backend returns 404 when no staff exist yet — treat as empty list
+      setStaffList([]);
     }
   }, []);
 
   const fetchReservations = useCallback(async () => {
-    const response = await getAllStaffReservations({ pageIndex: 0, pageSize: 100 });
-    if (response.succeeded && response.data) {
-      const items = response.data.data ?? [];
-      setReservations(sortStaffReservationsByPriority(items));
+    try {
+      const response = await getAllStaffReservations({ pageIndex: 0, pageSize: 100 });
+      if (response.succeeded && response.data) {
+        const items = response.data.data ?? [];
+        setReservations(sortStaffReservationsByPriority(items));
+      }
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Failed to load reservations', 'error');
     }
   }, []);
 
@@ -138,8 +153,7 @@ export default function ManagerDashboard() {
   }, []);
 
   const fetchMenu = useCallback(async (rid: number | null) => {
-    if (!rid) return;
-    const catResponse = await getCategories(rid);
+    const catResponse = await getCategories(rid ?? undefined);
     if (!catResponse.succeeded) return;
     const cats = catResponse.data ?? [];
     setCategories(cats);
@@ -239,14 +253,15 @@ export default function ManagerDashboard() {
   };
 
   const handleBlockStaff = async (member: StaffMember) => {
-    const staffId = member.email;
-    if (!window.confirm(`Block staff member ${member.displayName}?`)) return;
+    const staffId = member.email ?? member.userName ?? '';
+    if (!staffId) return;
+    if (!window.confirm(`Block staff member ${member.displayName ?? member.email}?`)) return;
     try {
       const response = await blockStaffMember({ staffId });
       if (!response.succeeded) {
         throw new Error(response.message || 'Failed to block staff');
       }
-      pushToast(`${member.displayName} has been blocked`);
+      pushToast(`${member.displayName ?? member.email ?? 'Staff member'} has been blocked`);
       await fetchStaff();
     } catch (err) {
       pushToast(err instanceof Error ? err.message : 'Failed to block staff', 'error');
@@ -453,7 +468,7 @@ export default function ManagerDashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <StatCard
             label="Pending requests"
             value={pendingCount}
@@ -470,7 +485,7 @@ export default function ManagerDashboard() {
           <StatCard label="Tables" value={tables.length} icon={<FaChair />} accent="rose" />
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-4">
           {(
             [
               ['reservations', 'Reservations', FaCalendarAlt, pendingCount],
@@ -554,7 +569,7 @@ export default function ManagerDashboard() {
                             <FaUsers className="text-gray-400" /> {res.numberOfGuests} guests
                           </p>
                         </div>
-                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusStyles.badge}`}>
+                        <span className={`inline-flex items-center justify-center text-xs font-medium px-2 py-0.5 rounded-full capitalize ${statusStyles.badge}`}>
                           {formatStatusLabel(res.status)}
                         </span>
                       </div>
@@ -634,17 +649,17 @@ export default function ManagerDashboard() {
               </div>
             ) : (
               <ul className="space-y-2">
-                {staffList.map((staff) => (
+                {staffList.map((staff, idx) => (
                   <li
-                    key={staff.email}
+                    key={staff.email ?? staff.userName ?? idx}
                     className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100 hover:shadow-sm transition"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-[#6B8A62]/10 text-[#6B8A62] font-semibold flex items-center justify-center text-sm shrink-0">
-                        {getInitials(staff.displayName)}
+                        {getInitials(staff.displayName ?? staff.userName ?? staff.email)}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{staff.displayName}</p>
+                        <p className="font-medium text-gray-900">{staff.displayName ?? staff.userName ?? staff.email ?? '—'}</p>
                         <p className="text-xs text-gray-500">{staff.email}</p>
                         {staff.phoneNumber && (
                           <p className="text-xs text-gray-400">{staff.phoneNumber}</p>

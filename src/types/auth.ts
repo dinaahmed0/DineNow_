@@ -83,10 +83,10 @@ export interface BlockStaffRequest {
 }
 
 export interface StaffMember {
-  email: string;
+  email?: string;
   phoneNumber?: string;
   userName?: string;
-  displayName: string;
+  displayName?: string;
 }
 
 export type InviteStaffResponse = ApiResponse<string>;

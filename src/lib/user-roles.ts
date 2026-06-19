@@ -2,9 +2,9 @@ import { getRolesFromToken } from './jwt-claims';
 import { APP_ROUTES } from '../constants/routes';
 
 export const USER_ROLES = {
-  superAdmin: ['SuperAdmin', 'Admin', 'Administrator', 'superadmin', 'administrator'],
-  manager: ['Manager', 'Owner', 'RestaurantOwner', 'RestaurantManager'],
-  staff: ['Staff', 'Employee', 'Waiter'],
+  superAdmin: ['SuperAdmin'],
+  manager: ['Manager'],
+  staff: ['Staff'],
 } as const;
 
 function matchesRole(userRole: string, allowed: readonly string[]): boolean {

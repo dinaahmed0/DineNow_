@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   FaCalendarCheck,
   FaCheck,
   FaQrcode,
   FaSpinner,
   FaLightbulb,
+  FaTimes,
+  FaChair,
 } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -16,8 +18,12 @@ import {
   getReservationSuggestions,
   rejectReservation,
 } from '../../services/reservation';
+import { getAvailableTables } from '../../services/table';
+import { getRestaurantById } from '../../services/restaurant';
+import { resolveRestaurantId } from '../../lib/resolve-restaurant-id';
 import { sortStaffReservationsByPriority } from '../../lib/reservation-status';
 import type { ReservationStaffItem } from '../../types/reservation';
+import type { TableItem } from '../../types/table';
 import {
   formatStatusLabel,
   matchesStatusGroup,
@@ -29,11 +35,21 @@ import { APP_ROUTES } from '../../constants/routes';
 
 type FilterTab = 'pending' | 'active' | 'done';
 
+const getStatusBadgeClass = (status: string | number) => {
+  const s = normalizeReservationStatus(status);
+  if (matchesStatusGroup(STATUS_GROUPS.active, status)) return 'bg-green-100 text-green-700';
+  if (matchesStatusGroup(STATUS_GROUPS.pending, status)) return 'bg-yellow-100 text-yellow-700';
+  if (s === 'rejected') return 'bg-red-100 text-red-700';
+  if (s === 'cancelled') return 'bg-blue-100 text-blue-700';
+  return 'bg-gray-100 text-gray-600';
+};
+
 export default function StaffPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [reservations, setReservations] = useState<ReservationStaffItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [restaurantName, setRestaurantName] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterTab>('pending');
   const [actionId, setActionId] = useState<number | null>(null);
   const [qrCode, setQrCode] = useState('');
@@ -43,6 +59,14 @@ export default function StaffPage() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<import('../../types/reservation').ReservationSuggestion[]>([]);
+
+  // Table picker for approval
+  const [pickerReservation, setPickerReservation] = useState<ReservationStaffItem | null>(null);
+  const [pickerTables, setPickerTables] = useState<TableItem[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+  const [pickerSelected, setPickerSelected] = useState<number | null>(null);
+  const [pickerConfirming, setPickerConfirming] = useState(false);
 
   const pushToast = (text: string, type: 'success' | 'error' = 'success') => {
     if (type === 'error') console.error(text);
@@ -69,6 +93,20 @@ export default function StaffPage() {
   }, [load]);
 
   useEffect(() => {
+    if (!user?.token) return;
+    void (async () => {
+      try {
+        const rid = await resolveRestaurantId(user.token);
+        if (!rid) return;
+        const r = await getRestaurantById(rid);
+        if (r?.name) setRestaurantName(r.name);
+      } catch {
+        // non-critical
+      }
+    })();
+  }, [user?.token]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       void load();
     }, 20_000);
@@ -79,10 +117,7 @@ export default function StaffPage() {
     const s = normalizeReservationStatus(r.status);
     if (filter === 'pending') return STATUS_GROUPS.pending.includes(s as 'pending');
     if (filter === 'active') return STATUS_GROUPS.active.includes(s as 'approved');
-    return (
-      s === 'completed' ||
-      STATUS_GROUPS.inactive.includes(s as 'rejected')
-    );
+    return s === 'completed' || STATUS_GROUPS.inactive.includes(s as 'rejected');
   });
 
   const pendingCount = reservations.filter((r) =>
@@ -92,11 +127,10 @@ export default function StaffPage() {
     matchesStatusGroup(STATUS_GROUPS.active, r.status)
   ).length;
 
-  const runAction = async (id: number, action: 'approve' | 'reject' | 'complete') => {
+  const runAction = async (id: number, action: 'reject' | 'complete') => {
     setActionId(id);
     try {
-      if (action === 'approve') await approveReservation(id);
-      else if (action === 'reject') await rejectReservation(id);
+      if (action === 'reject') await rejectReservation(id);
       else await completeReservation(id);
       pushToast(`Reservation ${action}d successfully`);
       await load();
@@ -104,6 +138,48 @@ export default function StaffPage() {
       pushToast(err instanceof Error ? err.message : 'Action failed', 'error');
     } finally {
       setActionId(null);
+    }
+  };
+
+  const openTablePicker = async (reservation: ReservationStaffItem) => {
+    setPickerReservation(reservation);
+    setPickerSelected(null);
+    setPickerError(null);
+    setPickerTables([]);
+    setPickerLoading(true);
+    try {
+      const res = await getAvailableTables({
+        guests: reservation.numberOfGuests,
+        start: reservation.startDateTime,
+        end: reservation.endDateTime,
+        pageSize: 50,
+      });
+      setPickerTables(res.data?.data ?? []);
+    } catch {
+      setPickerError('Could not load available tables');
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+
+  const closeTablePicker = () => {
+    setPickerReservation(null);
+    setPickerTables([]);
+    setPickerSelected(null);
+    setPickerError(null);
+  };
+
+  const confirmApprove = async () => {
+    if (!pickerReservation || pickerSelected === null) return;
+    setPickerConfirming(true);
+    try {
+      await approveReservation(pickerReservation.id);
+      closeTablePicker();
+      await load();
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Approval failed', 'error');
+    } finally {
+      setPickerConfirming(false);
     }
   };
 
@@ -127,29 +203,23 @@ export default function StaffPage() {
   };
 
   const handleLogout = () => {
-    // Route through the centralized logout screen so history/back cannot restore the session.
     navigate(APP_ROUTES.logout);
   };
 
   const loadSuggestions = async (reservationId: number) => {
     if (suggestionsForReservationId === reservationId) {
-      // toggle off
       setSuggestionsForReservationId(null);
       setSuggestions([]);
       setSuggestionsError(null);
       return;
     }
-
     setSuggestionsForReservationId(reservationId);
     setSuggestionsLoading(true);
     setSuggestionsError(null);
     setSuggestions([]);
-
     try {
       const res = await getReservationSuggestions(reservationId);
-      if (!res.succeeded) {
-        throw new Error(res.message || 'Failed to load suggestions');
-      }
+      if (!res.succeeded) throw new Error(res.message || 'Failed to load suggestions');
       setSuggestions(res.data ?? []);
     } catch (err) {
       setSuggestionsError(err instanceof Error ? err.message : 'Failed to load suggestions');
@@ -162,7 +232,7 @@ export default function StaffPage() {
     <>
       <DashboardShell
         badge="Staff"
-        title="Reservations desk"
+        title={restaurantName ?? 'Reservations desk'}
         subtitle="New guest requests appear as pending — approve to confirm their table"
         userName={user?.displayName}
         onLogout={handleLogout}
@@ -182,7 +252,7 @@ export default function StaffPage() {
             QR check-in
           </h2>
           <p className="text-sm text-gray-500 mb-4">
-            Scan or paste the guest QR code to check them in (POST /api/Reservation/check-in).
+            Scan or paste the guest QR code to check them in.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <input
@@ -247,10 +317,10 @@ export default function StaffPage() {
                       <div>
                         <p className="font-semibold text-gray-900">{r.userName}</p>
                         <p className="text-sm text-gray-500">
-                          Table {r.tableNumber || '—'} · {r.numberOfGuests} guests
+                          {r.tableNumber ? `Table ${r.tableNumber}` : 'No table yet'} · {r.numberOfGuests} guests
                         </p>
                       </div>
-                      <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 capitalize">
+                      <span className={`inline-flex items-center justify-center text-xs font-medium px-2 py-1 rounded-full capitalize ${getStatusBadgeClass(r.status)}`}>
                         {formatStatusLabel(r.status)}
                       </span>
                     </div>
@@ -267,16 +337,15 @@ export default function StaffPage() {
                         <>
                           <button
                             type="button"
-                            disabled={actionId === r.id}
-                            onClick={() => runAction(r.id, 'approve')}
-                            className="px-3 py-1.5 bg-[#6B8A62] text-white text-sm rounded-lg disabled:opacity-50"
+                            onClick={() => void openTablePicker(r)}
+                            className="px-3 py-1.5 bg-[#6B8A62] text-white text-sm rounded-lg hover:bg-[#5A7352]"
                           >
                             Approve
                           </button>
                           <button
                             type="button"
                             disabled={actionId === r.id}
-                            onClick={() => runAction(r.id, 'reject')}
+                            onClick={() => void runAction(r.id, 'reject')}
                             className="px-3 py-1.5 border border-red-200 text-red-600 text-sm rounded-lg disabled:opacity-50"
                           >
                             Reject
@@ -287,7 +356,7 @@ export default function StaffPage() {
                         <button
                           type="button"
                           disabled={actionId === r.id}
-                          onClick={() => runAction(r.id, 'complete')}
+                          onClick={() => void runAction(r.id, 'complete')}
                           className="px-3 py-1.5 border border-gray-200 text-gray-700 text-sm rounded-lg disabled:opacity-50"
                         >
                           Mark complete
@@ -322,15 +391,12 @@ export default function StaffPage() {
                             <FaSpinner className="animate-spin text-[#6B8A62]" />
                           )}
                         </div>
-
                         {suggestionsError && (
                           <p className="mt-3 text-sm text-red-600">{suggestionsError}</p>
                         )}
-
                         {!suggestionsLoading && !suggestionsError && suggestions.length === 0 && (
                           <p className="mt-3 text-sm text-gray-500">No suggestions available.</p>
                         )}
-
                         {!suggestionsLoading && suggestions.length > 0 && (
                           <div className="mt-3 space-y-2">
                             {suggestions.map((s) => (
@@ -362,6 +428,91 @@ export default function StaffPage() {
           </div>
         </div>
       </DashboardShell>
+
+      {/* Table picker modal */}
+      {pickerReservation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-start justify-between p-5 border-b border-gray-100">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Assign a table</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {pickerReservation.userName} · {pickerReservation.numberOfGuests} guests ·{' '}
+                  {new Date(pickerReservation.startDateTime).toLocaleString([], {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeTablePicker}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* Table list */}
+            <div className="flex-1 overflow-y-auto p-5">
+              {pickerLoading ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <FaSpinner className="animate-spin text-2xl text-[#6B8A62]" />
+                  <p className="text-sm text-gray-500">Loading available tables…</p>
+                </div>
+              ) : pickerError ? (
+                <p className="text-sm text-red-600 text-center py-8">{pickerError}</p>
+              ) : pickerTables.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">
+                  No tables available for this time slot and party size.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {pickerTables.map((t) => (
+                    <button
+                      key={t.tableNumber}
+                      type="button"
+                      onClick={() => setPickerSelected(t.tableNumber)}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition ${
+                        pickerSelected === t.tableNumber
+                          ? 'border-[#6B8A62] bg-[#6B8A62]/5 text-[#6B8A62]'
+                          : 'border-gray-100 hover:border-gray-200 text-gray-700'
+                      }`}
+                    >
+                      <FaChair className="text-xl" />
+                      <span className="text-sm font-semibold">Table {t.tableNumber}</span>
+                      <span className="text-xs text-gray-500">Up to {t.capacity} guests</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3 p-5 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={closeTablePicker}
+                className="flex-1 py-2.5 border border-gray-200 text-gray-700 text-sm rounded-xl hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={pickerSelected === null || pickerConfirming}
+                onClick={() => void confirmApprove()}
+                className="flex-1 py-2.5 bg-[#6B8A62] text-white text-sm font-medium rounded-xl hover:bg-[#5A7352] disabled:opacity-50 flex items-center justify-center gap-2 transition"
+              >
+                {pickerConfirming ? <FaSpinner className="animate-spin" /> : <FaCheck />}
+                Confirm approval
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

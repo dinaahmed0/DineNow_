@@ -26,7 +26,7 @@ export default function DashboardShell({
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 pt-20 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
+        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
           <div>
             {badge && (
               <span className="inline-block text-xs font-semibold uppercase tracking-wider text-[#6B8A62] bg-[#6B8A62]/10 px-3 py-1 rounded-full mb-2">

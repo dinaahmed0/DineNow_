@@ -237,20 +237,24 @@ export default function Navbar() {
                   >
                     Profile
                   </Link>
-                  <Link
-                    to={APP_ROUTES.myReservations}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#6B8A62]/10"
-                    onClick={() => setIsProfileDropdownOpen(false)}
-                  >
-                    My Reservations
-                  </Link>
-                  <Link
-                    to={APP_ROUTES.favorites}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#6B8A62]/10"
-                    onClick={() => setIsProfileDropdownOpen(false)}
-                  >
-                    Favorites
-                  </Link>
+                  {!showSuperAdmin && !showManager && !showStaff && (
+                    <>
+                      <Link
+                        to={APP_ROUTES.myReservations}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#6B8A62]/10"
+                        onClick={() => setIsProfileDropdownOpen(false)}
+                      >
+                        My Reservations
+                      </Link>
+                      <Link
+                        to={APP_ROUTES.favorites}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#6B8A62]/10"
+                        onClick={() => setIsProfileDropdownOpen(false)}
+                      >
+                        Favorites
+                      </Link>
+                    </>
+                  )}
                   {showSuperAdmin && (
                     <Link
                       to={APP_ROUTES.superAdmin}

@@ -22,7 +22,7 @@ import {
   FaUtensils,
   FaBoxes,
 } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { apiGet, apiPatch, apiPost } from '../../services/api/client';
 import { API } from '../../constants/api';
 import { deleteRestaurant } from '../../services/restaurant';
@@ -32,6 +32,7 @@ import type { ApiResponse } from '../../types/common';
 import type { PaginationData } from '../../types/reservation';
 import DashboardShell from '../dashboard/DashboardShell';
 import { useAuth } from '../../contexts/AuthContext';
+import { isSuperAdmin } from '../../lib/user-roles';
 import { APP_ROUTES } from '../../constants/routes';
 
 // Modern Card Component
@@ -271,6 +272,10 @@ const emptyForm = (): RestaurantForm => ({
 export default function SuperAdmin() {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  if (!user?.token || !isSuperAdmin(user.token)) {
+    return <Navigate to={APP_ROUTES.home} replace />;
+  }
   const [restaurants, setRestaurants] = useState<RestaurantApiDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

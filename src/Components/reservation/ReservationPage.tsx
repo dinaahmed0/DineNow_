@@ -29,6 +29,19 @@ import { useAuth } from '../../contexts/AuthContext';
 import { combineDateAndTime, toApiDateTime } from '../../lib/reservation-datetime';
 import { APP_ROUTES } from '../../constants/routes';
 
+const ALL_TIME_SLOTS: string[] = (() => {
+  const slots: string[] = [];
+  for (let h = 10; h <= 22; h++) {
+    const mins = h === 22 ? [0] : [0, 30];
+    for (const m of mins) {
+      const h12 = h === 12 ? 12 : h > 12 ? h - 12 : h;
+      const ampm = h < 12 ? 'AM' : 'PM';
+      slots.push(`${h12}:${m === 0 ? '00' : '30'} ${ampm}`);
+    }
+  }
+  return slots;
+})();
+
 export default function ReservationPage() {
   interface ReservationFormData {
     partySize: number | '9+' | '';
@@ -94,6 +107,58 @@ export default function ReservationPage() {
     }
   }, [user?.email]);
 
+  useEffect(() => {
+    const date = formData.date;
+    const partySize = formData.partySize;
+    const durationHours = formData.durationHours;
+    const selectedTime = formData.time;
+
+    if (!date || !partySize) {
+      setTimeSlots(ALL_TIME_SLOTS.map(time => ({ time, available: true })));
+      return;
+    }
+
+    let cancelled = false;
+    setSlotsLoading(true);
+
+    const numberOfGuests = partySize === '9+' ? 10 : Number(partySize);
+    const now = new Date();
+    const isToday = new Date(date).toDateString() === now.toDateString();
+
+    void (async () => {
+      const results = await Promise.all(
+        ALL_TIME_SLOTS.map(async (time): Promise<{ time: string; available: boolean }> => {
+          try {
+            const start = combineDateAndTime(date, time);
+            if (isToday && start <= now) return { time, available: false };
+            const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+            const res = await getAvailableTables({
+              guests: numberOfGuests,
+              start: toApiDateTime(start),
+              end: toApiDateTime(end),
+              pageSize: 1,
+            });
+            return { time, available: res.succeeded && (res.data?.count ?? 0) > 0 };
+          } catch {
+            return { time, available: true };
+          }
+        })
+      );
+      if (!cancelled) {
+        setTimeSlots(results);
+        setSlotsLoading(false);
+        if (selectedTime) {
+          const slot = results.find(s => s.time === selectedTime);
+          if (slot && !slot.available) {
+            setFormData(prev => ({ ...prev, time: '' }));
+          }
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [formData.date, formData.partySize, formData.durationHours]);
+
 
   const [errors, setErrors] = useState<ReservationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -110,22 +175,10 @@ export default function ReservationPage() {
     return dates;
   };
 
-  const timeSlots = [
-    { time: '12:00 PM', available: true },
-    { time: '12:30 PM', available: true },
-    { time: '1:00 PM', available: true },
-    { time: '1:30 PM', available: false },
-    { time: '2:00 PM', available: true },
-    { time: '5:30 PM', available: true },
-    { time: '6:00 PM', available: true },
-    { time: '6:30 PM', available: true },
-    { time: '7:00 PM', available: true },
-    { time: '7:30 PM', available: false },
-    { time: '8:00 PM', available: true },
-    { time: '8:30 PM', available: true },
-    { time: '9:00 PM', available: true },
-    { time: '9:30 PM', available: true },
-  ];
+  const [timeSlots, setTimeSlots] = useState<{ time: string; available: boolean }[]>(
+    ALL_TIME_SLOTS.map(time => ({ time, available: true }))
+  );
+  const [slotsLoading, setSlotsLoading] = useState(false);
 
   const occasions = [
     { value: 'birthday', label: '🎂 Birthday', icon: FaBirthdayCake },
@@ -487,26 +540,31 @@ export default function ReservationPage() {
 
                   {/* Time Selection */}
                   <div>
-                    <label className="block text-sm font-semibold text-[#6B8A62] mb-3">
+                    <label className="block text-sm font-semibold text-[#6B8A62] mb-3 flex items-center gap-2">
                       Select Time
+                      {slotsLoading && (
+                        <span className="text-xs font-normal text-gray-400 animate-pulse">
+                          Checking availability…
+                        </span>
+                      )}
                     </label>
                     <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
                       {timeSlots.map((slot) => (
                         <button
                           key={slot.time}
                           type="button"
-                          disabled={!slot.available}
-                          onClick={() => slot.available && handleInputChange('time', slot.time)}
+                          disabled={!slot.available || slotsLoading}
+                          onClick={() => !slotsLoading && slot.available && handleInputChange('time', slot.time)}
                           className={`py-2 px-3 rounded-lg border-2 transition-all ${
                             formData.time === slot.time
                               ? 'border-[#6B8A62] bg-[#6B8A62]/10 text-[#6B8A62]'
-                              : slot.available
+                              : slot.available && !slotsLoading
                               ? 'border-gray-200 hover:border-[#6B8A62] text-gray-700'
                               : 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
                           }`}
                         >
                           {slot.time}
-                          {!slot.available && <span className="text-xs block">Not Available</span>}
+                          {!slot.available && !slotsLoading && <span className="text-xs block">Unavailable</span>}
                         </button>
                       ))}
                     </div>
