@@ -5,6 +5,9 @@ import { MdRestaurant, MdLocalCafe } from 'react-icons/md';
 import { Card, Button, Badge, TextInput } from 'flowbite-react';
 import ProtectedButton from '../auth/ProtectedButton';
 import { getAllRestaurants } from '../../services/restaurant';
+import { getFavorites, addFavorite, removeFavorite } from '../../services/favorite';
+import { useAuth } from '../../contexts/AuthContext';
+import { APP_ROUTES } from '../../constants/routes';
 import type { ReturnRestaurantQuery } from '../../types/restaurant';
 
 interface Spot {
@@ -338,6 +341,7 @@ const SkeletonCard = () => (
 // Main component
 export default function Spots() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [spots, setSpots] = useState<Spot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -371,6 +375,24 @@ export default function Spots() {
     void fetchSpots();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setFavorites([]);
+      return;
+    }
+    let cancelled = false;
+
+    getFavorites()
+      .then((response) => {
+        if (!cancelled) {
+          setFavorites((response.data ?? []).map((f) => f.restaurantId));
+        }
+      })
+      .catch(() => { /* favorites are a nice-to-have; ignore load failures */ });
+
+    return () => { cancelled = true; };
+  }, [user]);
 
   const filteredSpots = useMemo(() => {
     let filtered = spots;
@@ -412,12 +434,24 @@ export default function Spots() {
   );
 
   const handleFavoriteToggle = useCallback((spotId: number) => {
+    if (!user) {
+      navigate(APP_ROUTES.login);
+      return;
+    }
+
+    const isFavorite = favorites.includes(spotId);
     setFavorites(prev =>
-      prev.includes(spotId)
-        ? prev.filter(id => id !== spotId)
-        : [...prev, spotId]
+      isFavorite ? prev.filter(id => id !== spotId) : [...prev, spotId]
     );
-  }, []);
+
+    const request = isFavorite ? removeFavorite(spotId) : addFavorite(spotId);
+    request.catch(() => {
+      // Revert on failure since the optimistic update above didn't stick server-side.
+      setFavorites(prev =>
+        isFavorite ? [...prev, spotId] : prev.filter(id => id !== spotId)
+      );
+    });
+  }, [user, favorites, navigate]);
 
   const clearAllFilters = () => {
     setFilterType('all');

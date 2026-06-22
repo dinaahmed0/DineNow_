@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Button } from 'flowbite-react';
-import { 
-  HiStar, HiLightBulb, 
-  HiOutlineRocketLaunch, HiShieldExclamation, HiGift,
+import {
+  HiStar, HiLightBulb,
+  HiOutlineRocketLaunch, HiShieldExclamation, HiBellAlert,
   HiClock, HiHeart, HiGlobeAmericas , HiCheckBadge
 } from 'react-icons/hi2';
 import { FaQuoteLeft, FaAward } from 'react-icons/fa';
@@ -116,7 +116,7 @@ export default function About() {
           <div className="grid md:grid-cols-3 gap-8">
             {[
               { icon: HiClock, title: "Real-Time Booking", desc: "See live availability and book instantly — no waiting for confirmation" },
-              { icon: HiGift, title: "Rewards Program", desc: "Earn points with every booking and redeem for exclusive dining perks" },
+              { icon: HiBellAlert, title: "Live Status Updates", desc: "Get notified instantly the moment your reservation is approved, updated, or ready" },
               { icon: HiShieldExclamation, title: "No-Show Protection", desc: "Automated reminders help restaurants reduce last-minute cancellations" }
             ].map((item, index) => (
               <div key={index} className="group relative overflow-hidden rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1">

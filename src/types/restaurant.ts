@@ -3,7 +3,7 @@ import type { PaginationData } from './reservation';
 
 /**
  * Shape returned by GET /api/Restaurant and GET /api/Restaurant/{id}.
- * The backend's ReturnRestaurantQuery only ever includes id/name/isActive/averageRating -
+ * The backend's ReturnRestaurantQuery only ever includes id/name/isActive/averageRating/imageUrl -
  * address/phone/openingHours are not returned and should not be relied on for pre-filling forms.
  */
 export interface RestaurantApiDto {
@@ -11,6 +11,7 @@ export interface RestaurantApiDto {
   name: string;
   isActive: boolean;
   averageRating: number;
+  imageUrl?: string | null;
   address?: string;
   phone?: string;
   openingHours?: string;

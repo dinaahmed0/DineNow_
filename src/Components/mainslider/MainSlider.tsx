@@ -7,6 +7,9 @@ import { Button } from 'flowbite-react';
 import ProtectedButton from '../auth/ProtectedButton';
 import { Link } from 'react-router-dom';
 import { getAllRestaurants } from '../../services/restaurant';
+import { getFavorites, addFavorite, removeFavorite } from '../../services/favorite';
+import { useAuth } from '../../contexts/AuthContext';
+import { APP_ROUTES } from '../../constants/routes';
 import type { ReturnRestaurantQuery } from '../../types/restaurant';
 
 
@@ -323,6 +326,7 @@ function RestaurantCard({
 // Main Carousel Component
 export default function MainSlider() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [showNotification, setShowNotification] = useState<string | null>(null);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -353,6 +357,21 @@ export default function MainSlider() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    getFavorites()
+      .then((response) => {
+        if (cancelled) return;
+        const favoriteIds = new Set((response.data ?? []).map((f) => f.restaurantId));
+        setRestaurants((prev) => prev.map((r) => ({ ...r, isFavorite: favoriteIds.has(r.id) })));
+      })
+      .catch(() => { /* favorites are a nice-to-have; ignore load failures */ });
+
+    return () => { cancelled = true; };
+  }, [user, restaurants.length]);
+
   // Slider configuration
   const settings = {
     dots: true,
@@ -375,6 +394,14 @@ export default function MainSlider() {
 
   // Toggle favorite status
   const handleFavoriteToggle = (restaurantId: number) => {
+    if (!user) {
+      navigate(APP_ROUTES.login);
+      return;
+    }
+
+    const restaurant = restaurants.find(r => r.id === restaurantId);
+    const wasFavorite = !!restaurant?.isFavorite;
+
     setRestaurants(prevRestaurants =>
       prevRestaurants.map(restaurant =>
         restaurant.id === restaurantId
@@ -382,10 +409,20 @@ export default function MainSlider() {
           : restaurant
       )
     );
-    
-    const restaurant = restaurants.find(r => r.id === restaurantId);
-    const action = !restaurant?.isFavorite ? 'added to' : 'removed from';
-    
+
+    const request = wasFavorite ? removeFavorite(restaurantId) : addFavorite(restaurantId);
+    request.catch(() => {
+      // Revert on failure since the optimistic update above didn't stick server-side.
+      setRestaurants(prevRestaurants =>
+        prevRestaurants.map(r => r.id === restaurantId ? { ...r, isFavorite: wasFavorite } : r)
+      );
+      setShowNotification(`Failed to update favorites for ${restaurant?.name}`);
+      setTimeout(() => setShowNotification(null), 2000);
+      return;
+    });
+
+    const action = wasFavorite ? 'removed from' : 'added to';
+
     setShowNotification(`${restaurant?.name} ${action} favorites!`);
     setTimeout(() => setShowNotification(null), 2000);
   };

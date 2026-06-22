@@ -1,74 +1,58 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Button } from 'flowbite-react';
-import {
-  FaHeart,
-  FaRegHeart,
-  FaStar,
-  FaMapMarkerAlt,
-  FaChevronLeft,
-  FaUtensils,
-} from 'react-icons/fa';
-import { MdRestaurant, MdLocalCafe } from 'react-icons/md';
+import { FaHeart, FaRegHeart, FaStar, FaMapMarkerAlt, FaChevronLeft, FaUtensils, FaSpinner } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { APP_ROUTES } from '../../constants/routes';
+import { getFavorites, removeFavorite } from '../../services/favorite';
+import type { FavoriteRestaurant } from '../../types/favorite';
 
-const INITIAL_FAVORITES = [
-  {
-    id: 1,
-    name: 'Cozy Cafe',
-    rating: 4.5,
-    reviewCount: 120,
-    cuisine: 'Cafe',
-    type: 'cafe' as const,
-    location: 'Downtown',
-    priceRange: '$$',
-    description: 'A warm and inviting spot for coffee lovers.',
-    image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&h=400&fit=crop',
-  },
-  {
-    id: 2,
-    name: 'Urban Bistro',
-    rating: 4.8,
-    reviewCount: 200,
-    cuisine: 'Italian',
-    type: 'restaurant' as const,
-    location: 'City Center',
-    priceRange: '$$$',
-    description: 'Modern Italian dining with a cozy atmosphere.',
-    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=400&fit=crop',
-  },
-  {
-    id: 3,
-    name: 'Green Leaf Cafe',
-    rating: 4.4,
-    reviewCount: 312,
-    cuisine: 'Healthy',
-    type: 'cafe' as const,
-    location: 'East Side',
-    priceRange: '$$',
-    description: 'Organic coffee and healthy breakfast options.',
-    image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=600&h=400&fit=crop',
-  },
-];
-
-type FavoriteSpot = (typeof INITIAL_FAVORITES)[number];
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=400&fit=crop';
 
 export default function Favorites() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [favorites, setFavorites] = useState<FavoriteSpot[]>(INITIAL_FAVORITES);
-  const [filterType, setFilterType] = useState<'all' | 'restaurant' | 'cafe'>('all');
+  const [favorites, setFavorites] = useState<FavoriteRestaurant[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<number | null>(null);
 
-  const filteredFavorites =
-    filterType === 'all' ? favorites : favorites.filter((f) => f.type === filterType);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
 
-  const removeFavorite = (id: number) => {
-    setFavorites((prev) => prev.filter((f) => f.id !== id));
+    async function fetchFavorites() {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await getFavorites();
+        if (!cancelled) {
+          setFavorites(response.data ?? []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load favorites');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void fetchFavorites();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const handleRemove = async (restaurantId: number) => {
+    setRemovingId(restaurantId);
+    try {
+      await removeFavorite(restaurantId);
+      setFavorites((prev) => prev.filter((f) => f.restaurantId !== restaurantId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to remove favorite');
+    } finally {
+      setRemovingId(null);
+    }
   };
-
-  const restaurantCount = favorites.filter((f) => f.type === 'restaurant').length;
-  const cafeCount = favorites.filter((f) => f.type === 'cafe').length;
 
   if (!user) {
     return (
@@ -121,59 +105,31 @@ export default function Favorites() {
                 <p className="text-2xl font-bold text-white">{favorites.length}</p>
                 <p className="text-xs text-white/70 uppercase tracking-wide">Total</p>
               </div>
-              <div className="bg-white/15 backdrop-blur-sm rounded-xl px-5 py-3 text-center min-w-[72px]">
-                <p className="text-2xl font-bold text-white">{restaurantCount}</p>
-                <p className="text-xs text-white/70 uppercase tracking-wide">Dining</p>
-              </div>
-              <div className="bg-white/15 backdrop-blur-sm rounded-xl px-5 py-3 text-center min-w-[72px]">
-                <p className="text-2xl font-bold text-white">{cafeCount}</p>
-                <p className="text-xs text-white/70 uppercase tracking-wide">Cafés</p>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Filter pills */}
-        {favorites.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {(
-              [
-                { key: 'all' as const, label: 'All', count: favorites.length },
-                { key: 'restaurant' as const, label: 'Restaurants', count: restaurantCount },
-                { key: 'cafe' as const, label: 'Cafés', count: cafeCount },
-              ] as const
-            ).map(({ key, label, count }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setFilterType(key)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  filterType === key
-                    ? 'bg-[#6B8A62] text-white shadow-md'
-                    : 'bg-white text-gray-600 border border-gray-200 hover:border-[#6B8A62]/40'
-                }`}
-              >
-                {label}
-                <span className={`ml-1.5 ${filterType === key ? 'text-white/80' : 'text-gray-400'}`}>
-                  ({count})
-                </span>
-              </button>
-            ))}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <FaSpinner className="animate-spin text-3xl text-[#6B8A62] mb-3" />
+            <p className="text-gray-500 text-sm">Loading your favorites...</p>
           </div>
-        )}
-
-        {filteredFavorites.length === 0 ? (
+        ) : error ? (
+          <Card className="text-center py-16 shadow-sm">
+            <p className="text-red-600 text-lg font-medium mb-1">Failed to load favorites</p>
+            <p className="text-gray-400 text-sm mb-6">{error}</p>
+            <Button onClick={() => window.location.reload()} className="mx-auto bg-[#6B8A62] hover:bg-[#5A7352]">
+              Try again
+            </Button>
+          </Card>
+        ) : favorites.length === 0 ? (
           <Card className="text-center py-16 shadow-sm border border-gray-100">
             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <FaRegHeart className="text-3xl text-red-300" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              {favorites.length === 0 ? 'No favorites yet' : 'No matches for this filter'}
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">No favorites yet</h3>
             <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">
-              {favorites.length === 0
-                ? 'Explore spots and tap the heart icon to save places you love.'
-                : 'Try another category or add more favorites from Spots.'}
+              Explore spots and tap the heart icon to save places you love.
             </p>
             <Link
               to={APP_ROUTES.spots}
@@ -185,36 +141,26 @@ export default function Favorites() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredFavorites.map((fav) => (
+            {favorites.map((fav) => (
               <Card
-                key={fav.id}
+                key={fav.restaurantId}
                 className="group overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
               >
                 <div className="relative h-48 overflow-hidden">
                   <img
-                    src={fav.image}
-                    alt={fav.name}
+                    src={fav.imageUrl || DEFAULT_IMAGE}
+                    alt={fav.restaurantName}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     loading="lazy"
+                    onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_IMAGE; }}
                   />
-                  <div
-                    className={`absolute top-3 left-3 px-3 py-1 rounded-full text-white text-xs font-medium backdrop-blur-sm capitalize ${
-                      fav.type === 'restaurant' ? 'bg-red-700/90' : 'bg-amber-800/90'
-                    }`}
-                  >
-                    {fav.type === 'restaurant' ? (
-                      <MdRestaurant className="inline mr-1" />
-                    ) : (
-                      <MdLocalCafe className="inline mr-1" />
-                    )}
-                    {fav.type}
-                  </div>
                   <Button
-                    onClick={() => removeFavorite(fav.id)}
+                    onClick={() => handleRemove(fav.restaurantId)}
+                    disabled={removingId === fav.restaurantId}
                     color="light"
                     size="xs"
-                    className="absolute top-3 right-3 !p-0 w-9 h-9 rounded-full !bg-white/95 backdrop-blur-sm hover:!bg-white shadow-sm"
-                    aria-label={`Remove ${fav.name} from favorites`}
+                    className="absolute top-3 right-3 !p-0 w-9 h-9 rounded-full !bg-white/95 backdrop-blur-sm hover:!bg-white shadow-sm disabled:opacity-50"
+                    aria-label={`Remove ${fav.restaurantName} from favorites`}
                   >
                     <FaHeart className="text-red-500" />
                   </Button>
@@ -222,31 +168,26 @@ export default function Favorites() {
 
                 <div className="p-4">
                   <div className="flex justify-between items-start mb-2 gap-2">
-                    <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">{fav.name}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">{fav.restaurantName}</h3>
                     <div className="flex items-center gap-1 bg-[#6B8A62]/10 px-2 py-0.5 rounded-full shrink-0">
                       <FaStar className="text-yellow-400 text-xs" />
-                      <span className="text-sm font-medium text-gray-700">{fav.rating}</span>
+                      <span className="text-sm font-medium text-gray-700">{fav.averageRating.toFixed(1)}</span>
                     </div>
                   </div>
 
-                  <p className="text-[#6B8A62] text-sm font-medium mb-2">{fav.cuisine}</p>
-
-                  <div className="flex items-center gap-2 text-xs mb-3">
-                    <FaMapMarkerAlt className="text-[#6B8A62] shrink-0" />
-                    <span className="text-gray-500">{fav.location}</span>
-                    <span className="text-gray-300">•</span>
-                    <span className="font-medium text-gray-600">{fav.priceRange}</span>
-                  </div>
-
-                  <p className="text-gray-600 text-sm line-clamp-2 mb-4">{fav.description}</p>
+                  {fav.address && (
+                    <div className="flex items-center gap-2 text-xs mb-4">
+                      <FaMapMarkerAlt className="text-[#6B8A62] shrink-0" />
+                      <span className="text-gray-500 line-clamp-1">{fav.address}</span>
+                    </div>
+                  )}
 
                   <div className="flex gap-2">
-                    <Button
-                      onClick={() => navigate(APP_ROUTES.spots)}
-                      className="flex-1 bg-gradient-to-r from-[#6B8A62] to-[#5A7352] text-white py-2.5 rounded-lg font-semibold"
-                    >
-                      View Spot
-                    </Button>
+                    <Link to={`/restaurant/${fav.restaurantId}`} className="flex-1">
+                      <Button className="w-full bg-gradient-to-r from-[#6B8A62] to-[#5A7352] text-white py-2.5 rounded-lg font-semibold">
+                        View Spot
+                      </Button>
+                    </Link>
                     <Button
                       color="light"
                       onClick={() => navigate('/reservation')}

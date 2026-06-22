@@ -25,6 +25,10 @@ import {
 import FoodOrderingStep from './FoodOrderingStep';
 import { createReservationRequest } from '../../services/reservation';
 import { getAvailableTables } from '../../services/table';
+import { createOrUpdateBasket } from '../../services/basket';
+import { createPaymentIntent } from '../../services/payment';
+import { createOrder } from '../../services/order';
+import type { BasketItem } from '../../types/basket';
 import { useAuth } from '../../contexts/AuthContext';
 import { combineDateAndTime, toApiDateTime } from '../../lib/reservation-datetime';
 import { APP_ROUTES } from '../../constants/routes';
@@ -81,12 +85,17 @@ export default function ReservationPage() {
     price: number;
     quantity?: number;
     description?: string;
-    category?: string;
+    categoryName: string;
+    imageUrl?: string | null;
   };
 
   const [orderedFood, setOrderedFood] = useState<OrderedFoodItem[]>([]);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [basketId, setBasketId] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentSetupLoading, setPaymentSetupLoading] = useState(false);
+  const [paymentSetupError, setPaymentSetupError] = useState<string | null>(null);
   const [formData, setFormData] = useState<ReservationFormData>({
     partySize: '',
     date: '',
@@ -256,24 +265,24 @@ export default function ReservationPage() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (!validateStep2()) return;
-    
+
     // Check if user is authenticated
     if (!user || !user.token) {
       alert('Please login to create a reservation.');
       navigate('/login');
       return;
     }
-    
+
     // If food is ordered, payment must be completed first
     if (orderedFood.length > 0 && !paymentCompleted) {
       setShowPayment(true);
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const restaurantId = Number(restaurantData.id);
       if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
@@ -304,13 +313,28 @@ export default function ReservationPage() {
         notes: notes || 'No special requests',
       };
 
-      const { response } = await createReservationRequest(payload);
+      const { response, reservation } = await createReservationRequest(payload);
 
       if (!response.succeeded) {
         throw new Error(response.message || response.errors?.[0] || 'Failed to create reservation');
       }
 
-      setIsSubmitting(false);
+      // The reservation itself succeeded. Creating the linked order is a separate
+      // concern — its failure shouldn't be reported as "reservation failed".
+      if (orderedFood.length > 0 && basketId) {
+        if (reservation) {
+          try {
+            await createOrder({ basketId, reservationId: reservation.id });
+          } catch (orderError) {
+            console.error('Order creation failed after reservation was created', orderError);
+            alert('Your reservation is confirmed, but we couldn\'t confirm your food order/deposit — please contact the restaurant.');
+          }
+        } else {
+          console.error('Reservation succeeded but no resolved reservation row was returned; skipping order creation', response);
+          alert('Your reservation is confirmed, but we couldn\'t confirm your food order/deposit — please contact the restaurant.');
+        }
+      }
+
       navigate(APP_ROUTES.myReservations, {
         state: {
           reservationCreated: true,
@@ -318,15 +342,64 @@ export default function ReservationPage() {
         },
       });
     } catch (error) {
-      setIsSubmitting(false);
       const message = error instanceof Error ? error.message : 'Failed to create reservation';
       alert(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleFoodOrderUpdate = useCallback((foodItems: OrderedFoodItem[]) => {
     setOrderedFood(foodItems);
+    // Food changed (possibly after a deposit was already paid, via the step-3
+    // back button) — any existing basket/payment no longer matches the order,
+    // so invalidate it and require payment again.
+    setPaymentCompleted(false);
+    setBasketId(null);
+    setClientSecret(null);
   }, []);
+
+  const handleStartPayment = async () => {
+    setPaymentSetupError(null);
+
+    const restaurantId = Number(restaurantData.id);
+    if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
+      setPaymentSetupError('Please choose a valid restaurant before paying.');
+      return;
+    }
+
+    setPaymentSetupLoading(true);
+    try {
+      const id = crypto.randomUUID();
+      const items: BasketItem[] = orderedFood.map((item) => ({
+        id: item.id,
+        itemName: item.name,
+        imageUrl: item.imageUrl ?? undefined,
+        price: item.price,
+        category: item.categoryName,
+        restaurantName: restaurantData.name,
+        quantity: item.quantity ?? 1,
+      }));
+
+      const basketResponse = await createOrUpdateBasket({ id, items });
+      if (!basketResponse.succeeded || !basketResponse.data) {
+        throw new Error(basketResponse.message || 'Failed to create basket');
+      }
+
+      const paymentResponse = await createPaymentIntent();
+      if (!paymentResponse.succeeded || !paymentResponse.data?.clientSecret) {
+        throw new Error(paymentResponse.message || 'Failed to start payment');
+      }
+
+      setBasketId(basketResponse.data.id);
+      setClientSecret(paymentResponse.data.clientSecret);
+      setShowPayment(true);
+    } catch (err) {
+      setPaymentSetupError(err instanceof Error ? err.message : 'Failed to start payment');
+    } finally {
+      setPaymentSetupLoading(false);
+    }
+  };
 
   const handlePaymentComplete = () => {
     setPaymentCompleted(true);
@@ -335,6 +408,8 @@ export default function ReservationPage() {
 
   const handlePaymentCancel = () => {
     setShowPayment(false);
+    setBasketId(null);
+    setClientSecret(null);
   };
 
   const calculateFoodTotal = () => {
@@ -872,14 +947,29 @@ export default function ReservationPage() {
                         </p>
                       </div>
                       {!showPayment ? (
-                        <button
-                          type="button"
-                          onClick={() => setShowPayment(true)}
-                          className="w-full bg-[#6B8A62] hover:bg-[#5A7352] text-white py-2 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
-                        >
-                          <FaCreditCard className="text-sm" />
-                          Pay Deposit Now
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void handleStartPayment()}
+                            disabled={paymentSetupLoading}
+                            className="w-full bg-[#6B8A62] hover:bg-[#5A7352] text-white py-2 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            {paymentSetupLoading ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Preparing payment...
+                              </>
+                            ) : (
+                              <>
+                                <FaCreditCard className="text-sm" />
+                                Pay Deposit Now
+                              </>
+                            )}
+                          </button>
+                          {paymentSetupError && (
+                            <p className="mt-2 text-sm text-red-600">{paymentSetupError}</p>
+                          )}
+                        </>
                       ) : (
                         <div className="text-center py-2">
                           <p className="text-sm text-[#6B8A62] font-medium">Please complete payment below</p>
@@ -902,8 +992,9 @@ export default function ReservationPage() {
                   )}
 
                   {/* Payment Form */}
-                  {showPayment && (
+                  {showPayment && clientSecret && (
                     <PaymentForm
+                      clientSecret={clientSecret}
                       amount={calculateFoodTotal()}
                       onPaymentComplete={handlePaymentComplete}
                       onCancel={handlePaymentCancel}

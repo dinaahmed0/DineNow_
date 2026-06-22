@@ -38,7 +38,7 @@ function mapRestaurantDtoToView(
     location: extras.location ?? '',
     hours: dto.openingHours ?? extras.hours ?? '',
     features: extras.features ?? [],
-    image: extras.image,
+    image: dto.imageUrl ?? extras.image,
     isActive: dto.isActive,
     createdAt: extras.createdAt ?? new Date().toISOString(),
     updatedAt: extras.updatedAt ?? new Date().toISOString(),
@@ -77,7 +77,8 @@ function mapReviewsResponse(response: ReviewsListResponse): GetReviewQueryPagina
       createdAt: '',
     })),
     totalCount: response.data?.count ?? reviews.length,
-    currentPage: (response.data?.pageIndex ?? 0) + 1,
+    // get-reviews echoes back the 1-based PageIndex we sent (see reviewService.getReviews) — no further +1 needed.
+    currentPage: response.data?.pageIndex ?? 1,
     pageSize: response.data?.pageSize ?? reviews.length,
     totalPages: Math.max(
       1,
@@ -154,9 +155,9 @@ export async function updateRestaurant(
   return mapRestaurantDtoToView(dto, restaurantData);
 }
 
-/** Swagger documents DELETE /api/Restaurant with no params; the backend takes the id as a query string */
 export async function deleteRestaurant(id: number): Promise<void> {
-  await apiDelete<ApiResponse<string>>(API.restaurant.delete(id));
+  const response = await apiDelete<ApiResponse<string>>(API.restaurant.delete(id));
+  unwrapApiResponse(response);
 }
 
 export async function addReview(reviewData: AddReviewCommand) {

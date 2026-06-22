@@ -3,7 +3,6 @@ import {
   FiSearch,
   FiCalendar,
   FiBell,
-  FiGift,
   FiChevronDown,
   FiCoffee,
   FiCheckCircle,
@@ -21,25 +20,39 @@ const faqs = [
     category: "Booking"
   },
   {
-    id: 2,
-    question: "Is there a fee to use DineNow?",
+    id: 4,
+    question: "Can I pre-order food with my reservation?",
     answer:
-      "No, DineNow is completely free for diners. You only pay for your meal at the restaurant.",
-    category: "Pricing"
-  },
-  {
-    id: 3,
-    question: "Can I cancel or modify my reservation?",
-    answer:
-      "Yes, you can cancel or modify your reservation up to 1 hour before your booking time. Some restaurants may have different policies.",
+      "Yes. While booking, you can browse the restaurant's menu by category and add the dishes you want — they'll be ready for your table when you arrive.",
     category: "Booking"
   },
   {
-    id: 4,
-    question: "How do DineNow Rewards work?",
+    id: 5,
+    question: "Why is my reservation showing as \"Pending\"?",
     answer:
-      "Every time you dine at a participating restaurant, you earn points. 1,000 points = $10 towards future bookings.",
-    category: "Rewards"
+      "New bookings are reviewed by the restaurant before they're confirmed. You'll get a notification and your reservation will move to \"Confirmed\" as soon as they approve it.",
+    category: "Booking"
+  },
+  {
+    id: 6,
+    question: "How do I check in when I arrive at the restaurant?",
+    answer:
+      "Your confirmation includes a QR code. Show it to the host at the restaurant and they'll scan it to check you in — no need to give your name or search for your booking.",
+    category: "Booking"
+  },
+  {
+    id: 7,
+    question: "Will I be notified if my reservation status changes?",
+    answer:
+      "Yes. You'll get an instant notification the moment a restaurant approves, rejects, or updates your reservation, so you're never left wondering.",
+    category: "Account"
+  },
+  {
+    id: 8,
+    question: "How can I leave a review after my reservation?",
+    answer:
+      "Once your reservation is marked complete, you can rate it and leave a comment from My Reservations. Your review appears publicly on the restaurant's page.",
+    category: "Reviews"
   }
 ];
 
@@ -68,12 +81,6 @@ const features = [
     icon: <FiBell className="w-5 h-5" />,
     title: "Get reminders",
     description: "Timely alerts so you never miss a reservation"
-  },
-  {
-    id: 5,
-    icon: <FiGift className="w-5 h-5" />,
-    title: "Earn points",
-    description: "Redeem for dining rewards and perks"
   }
 ];
 
@@ -200,8 +207,8 @@ export default function FAQSection() {
               </div>
               <div className="space-y-3 text-sm">
                 <p>• Book popular restaurants 2-3 weeks in advance</p>
-                <p>• Earn double points on your first 5 bookings</p>
-                <p>• Leave reviews to get exclusive discounts</p>
+                <p>• Enable notifications to know the moment you're confirmed</p>
+                <p>• Leave a review to help other diners decide</p>
                 <p>• Download our app for faster booking</p>
               </div>
             </div>

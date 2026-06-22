@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -i https://reservationproj.runasp.net/api/Favorite)"
+    ]
+  }
+}

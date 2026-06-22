@@ -18,11 +18,9 @@ import {
   FaEnvelope,
   FaClock,
   FaMapMarkerAlt,
-  FaUsers,
-  FaUtensils,
-  FaBoxes,
 } from 'react-icons/fa';
 import { useNavigate, Navigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import { apiGet, apiPatch, apiPost } from '../../services/api/client';
 import { API } from '../../constants/api';
 import { deleteRestaurant } from '../../services/restaurant';
@@ -115,7 +113,7 @@ function RestaurantCard({
               </span>
             </div>
           </div>
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex gap-1">
             <button
               onClick={() => onView(restaurant)}
               className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition"
@@ -171,11 +169,11 @@ function RestaurantCard({
 }
 
 // Detailed Modal Component
-function RestaurantDetailModal({ 
-  restaurant, 
-  onClose 
-}: { 
-  restaurant: RestaurantApiDto; 
+function RestaurantDetailModal({
+  restaurant,
+  onClose
+}: {
+  restaurant: RestaurantApiDto;
   onClose: () => void;
 }) {
   return (
@@ -216,13 +214,6 @@ function RestaurantDetailModal({
             <InfoItem icon={FaPhone} label="Phone" value={restaurant.phone || 'Not specified'} />
             <InfoItem icon={FaClock} label="Opening Hours" value={restaurant.openingHours || 'Not specified'} />
           </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-3 pt-4 border-t border-gray-100">
-            <StatBadge icon={FaUtensils} label="Total Tables" value="24" />
-            <StatBadge icon={FaUsers} label="Staff Members" value="12" />
-            <StatBadge icon={FaBoxes} label="Active Orders" value="8" />
-          </div>
         </div>
       </div>
     </div>
@@ -237,16 +228,6 @@ function InfoItem({ icon: Icon, label, value }: { icon: any; label: string; valu
         <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
         <p className="text-sm font-medium text-gray-900">{value}</p>
       </div>
-    </div>
-  );
-}
-
-function StatBadge({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
-  return (
-    <div className="text-center p-3 bg-gradient-to-br from-gray-50 to-white rounded-xl">
-      <Icon className="w-4 h-4 text-[#6B8A62] mx-auto mb-1" />
-      <p className="text-lg font-bold text-gray-900">{value}</p>
-      <p className="text-xs text-gray-500">{label}</p>
     </div>
   );
 }
@@ -288,7 +269,12 @@ export default function SuperAdmin() {
   const itemsPerPage = 12;
 
   const pushToast = (text: string, type: 'success' | 'error' = 'success') => {
-    if (type === 'error') console.error(text);
+    if (type === 'error') {
+      console.error(text);
+      toast.error(text);
+    } else {
+      toast.success(text);
+    }
   };
 
   const fetchRestaurants = useCallback(async () => {
@@ -310,9 +296,9 @@ export default function SuperAdmin() {
     void fetchRestaurants();
   }, [fetchRestaurants]);
 
-  const filtered = restaurants.filter((r) =>
-    r.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = restaurants
+    .filter((r) => r.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => a.id - b.id);
 
   const paginatedRestaurants = filtered.slice(
     (currentPage - 1) * itemsPerPage,
@@ -584,7 +570,7 @@ export default function SuperAdmin() {
                               </span>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex gap-2">
                                 <button
                                   onClick={() => openView(r)}
                                   className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition"

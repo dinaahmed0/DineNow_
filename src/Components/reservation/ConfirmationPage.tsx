@@ -283,23 +283,25 @@ export default function ConfirmationPage({ reservationData }: ConfirmationPagePr
                     </div>
                   )}
 
-                  {/* Payment Status Badge */}
-                  {depositPaid ? (
-                    <div className="bg-[#6B8A62]/10 rounded-xl p-3 flex items-center gap-3 border border-[#6B8A62]/30">
-                      <FiCreditCard className="w-5 h-5 text-[#6B8A62]" />
-                      <div>
-                        <p className="text-xs font-semibold text-[#6B8A62]">Deposit Paid</p>
-                        <p className="text-xs text-[#6B8A62]">${depositAmount.toFixed(2)} charged</p>
+                  {/* Payment Status Badge — only meaningful when we actually have food order data */}
+                  {orderedFood.length > 0 && (
+                    depositPaid ? (
+                      <div className="bg-[#6B8A62]/10 rounded-xl p-3 flex items-center gap-3 border border-[#6B8A62]/30">
+                        <FiCreditCard className="w-5 h-5 text-[#6B8A62]" />
+                        <div>
+                          <p className="text-xs font-semibold text-[#6B8A62]">Deposit Paid</p>
+                          <p className="text-xs text-[#6B8A62]">${depositAmount.toFixed(2)} charged</p>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
-                      <FiCreditCard className="w-5 h-5 text-gray-500" />
-                      <div>
-                        <p className="text-xs font-semibold text-gray-700">Pay at Restaurant</p>
-                        <p className="text-xs text-gray-500">${foodTotal.toFixed(2)} due</p>
+                    ) : (
+                      <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
+                        <FiCreditCard className="w-5 h-5 text-gray-500" />
+                        <div>
+                          <p className="text-xs font-semibold text-gray-700">Pay at Restaurant</p>
+                          <p className="text-xs text-gray-500">${foodTotal.toFixed(2)} due</p>
+                        </div>
                       </div>
-                    </div>
+                    )
                   )}
                 </div>
               </div>

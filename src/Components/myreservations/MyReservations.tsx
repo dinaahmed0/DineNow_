@@ -95,7 +95,10 @@ const MyReservations = () => {
   const [searchParams] = useSearchParams();
 
   // State
-  const [showPast, setShowPast] = useState(() => searchParams.get('tab') === 'past');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'past'>(() => {
+    const tab = searchParams.get('tab');
+    return tab === 'completed' || tab === 'past' ? tab : 'upcoming';
+  });
   const [selectedReservation, setSelectedReservation] = useState<number | null>(null);
   const [reservations, setReservations] = useState<ReservationUserItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -141,9 +144,24 @@ const MyReservations = () => {
     [pendingReservations, confirmedUpcoming]
   );
 
-  const pastReservations = useMemo(
-    () => reservations.filter((r) => matchesStatusGroup(STATUS_GROUPS.inactive, r.status)),
+  const completedReservations = useMemo(
+    () => reservations.filter((r) => matchesStatusGroup(['completed'], r.status)),
     [reservations]
+  );
+
+  const cancelledReservations = useMemo(
+    () => reservations.filter((r) => normalizeReservationStatus(r.status) === 'cancelled'),
+    [reservations]
+  );
+
+  const rejectedReservations = useMemo(
+    () => reservations.filter((r) => normalizeReservationStatus(r.status) === 'rejected'),
+    [reservations]
+  );
+
+  const pastReservations = useMemo(
+    () => [...cancelledReservations, ...rejectedReservations],
+    [cancelledReservations, rejectedReservations]
   );
 
   const fetchReservations = useCallback(async () => {
@@ -384,20 +402,20 @@ const MyReservations = () => {
             accent="from-green-50 to-white"
           />
           <StatCard
-            title="Total"
-            value={reservations.length}
-            icon={<CalendarIcon className="w-6 h-6 text-[#6B8A62]" />}
-            accent="from-[#6B8A62]/5 to-white"
+            title="Completed"
+            value={completedReservations.length}
+            icon={<StarIcon className="w-6 h-6 text-indigo-600" />}
+            accent="from-indigo-50 to-white"
           />
           <StatCard
             title="Past"
             value={pastReservations.length}
-            icon={<ClockIcon className="w-6 h-6 text-blue-600" />}
-            accent="from-blue-50 to-white"
+            icon={<XMarkIcon className="w-6 h-6 text-rose-600" />}
+            accent="from-rose-50 to-white"
           />
         </div>
 
-        {pendingReservations.length > 0 && !showPast && (
+        {pendingReservations.length > 0 && activeTab === 'upcoming' && (
           <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-sm text-amber-900">
             <strong>{pendingReservations.length}</strong> request
             {pendingReservations.length === 1 ? '' : 's'} waiting for staff approval. This page
@@ -406,15 +424,21 @@ const MyReservations = () => {
         )}
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-2 mb-6 inline-flex gap-1">
-          <TabButton active={!showPast} onClick={() => setShowPast(false)}>
+          <TabButton active={activeTab === 'upcoming'} onClick={() => setActiveTab('upcoming')}>
             Upcoming
-            <span className={`ml-1.5 px-2 py-0.5 rounded-full text-xs ${!showPast ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>
+            <span className={`ml-1.5 px-2 py-0.5 rounded-full text-xs ${activeTab === 'upcoming' ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>
               {activeReservations.length}
             </span>
           </TabButton>
-          <TabButton active={showPast} onClick={() => setShowPast(true)}>
+          <TabButton active={activeTab === 'completed'} onClick={() => setActiveTab('completed')}>
+            Completed
+            <span className={`ml-1.5 px-2 py-0.5 rounded-full text-xs ${activeTab === 'completed' ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>
+              {completedReservations.length}
+            </span>
+          </TabButton>
+          <TabButton active={activeTab === 'past'} onClick={() => setActiveTab('past')}>
             Past
-            <span className={`ml-1.5 px-2 py-0.5 rounded-full text-xs ${showPast ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>
+            <span className={`ml-1.5 px-2 py-0.5 rounded-full text-xs ${activeTab === 'past' ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>
               {pastReservations.length}
             </span>
           </TabButton>
@@ -438,7 +462,7 @@ const MyReservations = () => {
         )}
 
         {/* Upcoming Reservations */}
-        {!showPast && !error && (
+        {activeTab === 'upcoming' && !error && (
           activeReservations.length === 0 ? (
             <EmptyState
               title="No Upcoming Reservations"
@@ -524,13 +548,13 @@ const MyReservations = () => {
           )
         )}
 
-        {/* Past Reservations */}
-        {showPast && !error && (
-          pastReservations.length === 0 ? (
-            <EmptyState title="No Past Reservations" message="Your past reservations will appear here." />
+        {/* Completed Reservations */}
+        {activeTab === 'completed' && !error && (
+          completedReservations.length === 0 ? (
+            <EmptyState title="No Completed Reservations" message="Reservations you've dined at will appear here." />
           ) : (
             <div className="grid gap-4">
-              {pastReservations.map(reservation => (
+              {completedReservations.map(reservation => (
                 <PastReservationCard
                   key={reservation.id}
                   reservation={reservation}
@@ -542,6 +566,66 @@ const MyReservations = () => {
                   onReserveAgain={() => handleReserveAgain(reservation)}
                 />
               ))}
+            </div>
+          )
+        )}
+
+        {/* Past (Cancelled / Rejected) Reservations */}
+        {activeTab === 'past' && !error && (
+          pastReservations.length === 0 ? (
+            <EmptyState title="No Past Reservations" message="Cancelled and rejected reservations will appear here." />
+          ) : (
+            <div className={`grid gap-6 ${cancelledReservations.length > 0 && rejectedReservations.length > 0 ? 'lg:grid-cols-2' : ''}`}>
+              {cancelledReservations.length > 0 && (
+                <section>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <XMarkIcon className="w-5 h-5 text-blue-600" />
+                    Cancelled
+                    <span className="ml-auto text-xs font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                      {cancelledReservations.length}
+                    </span>
+                  </h2>
+                  <div className="grid gap-4">
+                    {cancelledReservations.map(reservation => (
+                      <PastReservationCard
+                        key={reservation.id}
+                        reservation={reservation}
+                        onReview={() => {
+                          setSelectedForReview(reservation);
+                          setShowReviewModal(true);
+                        }}
+                        onViewConfirmation={() => handleViewConfirmation(reservation)}
+                        onReserveAgain={() => handleReserveAgain(reservation)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+              {rejectedReservations.length > 0 && (
+                <section>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <XMarkIcon className="w-5 h-5 text-red-600" />
+                    Rejected
+                    <span className="ml-auto text-xs font-medium bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                      {rejectedReservations.length}
+                    </span>
+                  </h2>
+                  <div className="grid gap-4">
+                    {rejectedReservations.map(reservation => (
+                      <PastReservationCard
+                        key={reservation.id}
+                        reservation={reservation}
+                        onReview={() => {
+                          setSelectedForReview(reservation);
+                          setShowReviewModal(true);
+                        }}
+                        onViewConfirmation={() => handleViewConfirmation(reservation)}
+                        onReserveAgain={() => handleReserveAgain(reservation)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
             </div>
           )
         )}

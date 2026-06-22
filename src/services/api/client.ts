@@ -211,12 +211,25 @@ import {
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'https://reservationproj.runasp.net';
 
+type ValidationErrors = string[] | Record<string, string[]>;
+
 interface ErrorPayload {
   message?: string;
-  errors?: string[];
+  errors?: ValidationErrors;
   Message?: string;
-  Errors?: string[];
+  Errors?: ValidationErrors;
   succeeded?: boolean;
+  title?: string;
+}
+
+/** ASP.NET model-validation 400s use { errors: { FieldName: ["msg"] }, title: "..." } instead of our { message } envelope. */
+function firstValidationMessage(errors: ValidationErrors | undefined): string | undefined {
+  if (!errors) return undefined;
+  if (Array.isArray(errors)) return errors[0];
+  for (const messages of Object.values(errors)) {
+    if (messages?.length) return messages[0];
+  }
+  return undefined;
 }
 
 interface RefreshResponse {
@@ -235,10 +248,14 @@ const getAuthToken = (): string | null => {
   return user?.token || user?.accessToken || null;
 };
 
-const toError = (status: number, statusText: string, payload?: ErrorPayload): Error => {
-  const errorList = payload?.errors || payload?.Errors;
-  const firstApiError = errorList?.[0];
-  const message = payload?.message || payload?.Message || firstApiError || `Request failed: ${status} - ${statusText}`;
+const toError = (status: number, statusText: string, payload?: ErrorPayload | string): Error => {
+  if (typeof payload === 'string') {
+    if (payload.trim()) return new Error(payload);
+    payload = undefined;
+  }
+  const firstApiError = firstValidationMessage(payload?.errors) || firstValidationMessage(payload?.Errors);
+  const message =
+    payload?.message || payload?.Message || firstApiError || payload?.title || `Request failed: ${status} - ${statusText}`;
   return new Error(message);
 };
 
@@ -342,12 +359,12 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     const status = error.response?.status || 500;
     const statusText = error.response?.statusText || 'Unknown Error';
-    const responseData = error.response?.data as ErrorPayload | undefined;
+    const responseData = error.response?.data as ErrorPayload | string | undefined;
 
     // Some endpoints return HTTP 5xx with a body that says succeeded: true
     // (a backend bug where the real status code gets overwritten after a
     // success response is built). Trust the envelope over the transport status.
-    if (status >= 500 && responseData?.succeeded === true && error.response) {
+    if (status >= 500 && typeof responseData === 'object' && responseData?.succeeded === true && error.response) {
       return error.response;
     }
 

@@ -54,7 +54,7 @@ export const API = {
     byId: (id: number) => `/api/Restaurant/${id}`,
     create: '/api/Restaurant',
     update: '/api/Restaurant/Update',
-    delete: (id: number) => `/api/Restaurant?id=${id}`,
+    delete: (id: number) => `/api/Restaurant?RestaurantId=${id}`,
     addReview: '/api/Restaurant/add-review',
     getReviews: '/api/Restaurant/get-reviews',
   },
@@ -78,5 +78,24 @@ export const API = {
     create: '/api/MenuItem',
     update: '/api/MenuItem',
     delete: (id: number) => `/api/MenuItem/${id}`,
+  },
+  basket: {
+    createOrUpdate: '/api/Basket',
+    current: '/api/Basket',
+  },
+  order: {
+    create: '/api/Order/Create',
+    userAll: '/api/Order/User/GetAll',
+    userById: (id: number) => `/api/Order/User/${id}`,
+    restaurantAll: '/api/Order/Restaurant/GetAll',
+    restaurantById: (id: number) => `/api/Order/Restaurant/${id}`,
+  },
+  payment: {
+    createIntent: '/api/Payment',
+  },
+  favorite: {
+    list: '/api/Favorite',
+    add: (restaurantId: number) => `/api/Favorite/${restaurantId}`,
+    remove: (restaurantId: number) => `/api/Favorite/${restaurantId}`,
   },
 } as const;

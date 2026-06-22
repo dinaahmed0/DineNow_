@@ -33,7 +33,9 @@ export const reviewService = {
     restaurantId?: number;
   }): Promise<ReviewsListResponse> {
     const qs = buildQueryString({
-      PageIndex: filters?.pageIndex,
+      // Unlike every other paginated endpoint in this API, get-reviews is 1-based —
+      // PageIndex=0 makes the backend compute a negative SQL OFFSET and 500.
+      PageIndex: (filters?.pageIndex ?? 0) + 1,
       PageSize: filters?.pageSize,
       RestaurantId: filters?.restaurantId,
     });

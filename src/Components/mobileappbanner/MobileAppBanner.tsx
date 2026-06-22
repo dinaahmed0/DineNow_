@@ -48,7 +48,7 @@ export default function MobileAppBanner() {
 
               {/* Description */}
               <p className="text-gray-300 text-base md:text-lg mb-6 max-w-lg mx-auto lg:mx-0">
-                Download our app for instant bookings, exclusive offers, and rewards with every reservation.
+                Download our app for instant bookings and exclusive offers on every reservation.
               </p>
 
               {/* Feature List */}
@@ -57,7 +57,7 @@ export default function MobileAppBanner() {
                   "Instant confirmation",
                   "Exclusive member deals",
                   "Easy cancellation",
-                  "Loyalty rewards",
+                  "Live notifications",
                   "Real-time availability",
                   "Favorite spots"
                 ].map((feature, i) => (

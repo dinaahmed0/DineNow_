@@ -5,4 +5,5 @@ export * from './restaurant';
 export * from './reviewService';
 export * from './notification';
 export * from './table';
+export * from './favorite';
 export { apiGet, apiPost, apiPut, apiPatch, apiDelete, apiClient, API_BASE_URL } from './api/client';
