@@ -41,7 +41,14 @@ export default function FoodOrderingStep({ onFoodOrderUpdate, partySize, restaur
         const cats = catResponse.data ?? [];
         const itemLists = await Promise.all(cats.map((c) => getMenuItemsByCategory(c.id)));
         if (cancelled) return;
-        const items = itemLists.flatMap((r) => (r.succeeded ? r.data ?? [] : []));
+        // The backend never populates categoryName on menu items (always null) —
+        // backfill it from the category we used to fetch them, since the basket API
+        // requires a non-empty category per item.
+        const items = itemLists.flatMap((r, i) =>
+          r.succeeded
+            ? (r.data ?? []).map((item) => ({ ...item, categoryName: item.categoryName || cats[i].name }))
+            : []
+        );
         setMenu(items);
         setCategoryNames(['All', ...cats.map((c) => c.name)]);
       } catch (err) {
@@ -159,7 +166,15 @@ export default function FoodOrderingStep({ onFoodOrderUpdate, partySize, restaur
                 <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex gap-4">
                     <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
-                      <FaUtensils className="text-gray-400 text-xl" />
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <FaUtensils className="text-gray-400 text-xl" />
+                      )}
                     </div>
 
                     {/* Item Details */}

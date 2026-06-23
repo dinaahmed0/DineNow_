@@ -18,10 +18,6 @@ export async function getCategories(restaurantId?: number): Promise<CategoryList
   return apiGet<CategoryListResponse>(`${API.category.list}${qs}`);
 }
 
-export async function getCategoryById(id: number): Promise<CategoryResponse> {
-  return apiGet<CategoryResponse>(API.category.byId(id));
-}
-
 export async function createCategory(command: AddCategoryCommand): Promise<CategoryResponse> {
   return apiPost<CategoryResponse>(API.category.create, command);
 }
@@ -34,20 +30,29 @@ export async function deleteCategory(id: number): Promise<MenuActionResponse> {
   return apiDelete<MenuActionResponse>(API.category.delete(id));
 }
 
-export async function getMenuItemById(id: number): Promise<MenuItemResponse> {
-  return apiGet<MenuItemResponse>(API.menuItem.byId(id));
-}
-
 export async function getMenuItemsByCategory(categoryId: number): Promise<MenuItemListResponse> {
   return apiGet<MenuItemListResponse>(API.menuItem.byCategory(categoryId));
 }
 
 export async function createMenuItem(command: AddMenuItemCommand): Promise<MenuItemResponse> {
-  return apiPost<MenuItemResponse>(API.menuItem.create, command);
+  // Backend only accepts multipart/form-data for this endpoint (it takes an optional Image file).
+  const body = new FormData();
+  body.append('Name', command.name);
+  body.append('Description', command.description);
+  body.append('Price', String(command.price));
+  body.append('CategoryId', String(command.categoryId));
+  if (command.image) body.append('Image', command.image);
+  return apiPost<MenuItemResponse>(API.menuItem.create, body);
 }
 
 export async function updateMenuItem(command: UpdateMenuItemCommand): Promise<MenuItemResponse> {
-  return apiPut<MenuItemResponse>(API.menuItem.update, command);
+  const body = new FormData();
+  body.append('Id', String(command.id));
+  if (command.name !== undefined) body.append('Name', command.name);
+  if (command.description !== undefined) body.append('Description', command.description);
+  if (command.price !== undefined) body.append('Price', String(command.price));
+  if (command.image) body.append('Image', command.image);
+  return apiPut<MenuItemResponse>(API.menuItem.update, body);
 }
 
 export async function deleteMenuItem(id: number): Promise<MenuActionResponse> {

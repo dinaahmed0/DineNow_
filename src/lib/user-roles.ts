@@ -30,12 +30,6 @@ export function isStaff(token: string): boolean {
   return hasAnyRole(token, USER_ROLES.staff);
 }
 
-export function getPrimaryRoleLabel(token: string): string {
-  const roles = getRolesFromToken(token);
-  if (roles.length === 0) return 'User';
-  return roles[0];
-}
-
 /** Where a user should land after authenticating, based on their role. */
 export function getPostLoginRoute(token: string): string {
   if (isSuperAdmin(token)) return APP_ROUTES.superAdmin;

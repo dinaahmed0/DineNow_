@@ -92,33 +92,12 @@ export async function createReservationRequest(command: CreateReservationCommand
   return { response, reservation };
 }
 
-/** Staff/manager queue: pending approval requests only. */
-export async function getPendingStaffReservations(pageSize = 50) {
-  return getAllStaffReservations({
-    pageIndex: 0,
-    pageSize,
-    status: [RESERVATION_STATUS_CODE.pending],
-  });
-}
-
-export async function getUserReservationById(
-  reservationId: number
-): Promise<ReservationUserDetailsResponse> {
-  return apiGet<ReservationUserDetailsResponse>(API.reservation.userById(reservationId));
-}
-
 export async function getAllUserReservations(
   filters?: UserReservationsFilters
 ): Promise<ReservationUserListResponse> {
   return apiGet<ReservationUserListResponse>(
     `${API.reservation.userList}${buildReservationQueryString(filters)}`
   );
-}
-
-export async function getStaffReservationById(
-  reservationId: number
-): Promise<ReservationStaffDetailsResponse> {
-  return apiGet<ReservationStaffDetailsResponse>(API.reservation.staffById(reservationId));
 }
 
 export async function getAllStaffReservations(

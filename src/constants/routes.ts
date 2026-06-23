@@ -8,23 +8,17 @@ export const APP_ROUTES = {
   changePassword: '/change-password',
   confirmEmail: '/confirm-email',
   confirmation: '/confirmation',
-  search: '/search',
   restaurantDetails: '/restaurant/:id',
-  restaurants: '/restaurants',
-  restaurantAdmin: '/admin/restaurants',
   staffReservations: '/admin/reservations',
   managerDashboard: '/manager',
   superAdmin: '/super-admin',
   staffDashboard: '/staff',
   staffRegister: '/staff/register',
-  reserve: '/reserve',
-  reservationConfirmed: '/reservationConfirmed',
   myReservations: '/my-reservations',
   favorites: '/favorites',
   profile: '/profile',
   spots: '/spots',
   about: '/about',
-  cafes: '/cafes',
 } as const;
 
 /** Routes accessible without authentication */

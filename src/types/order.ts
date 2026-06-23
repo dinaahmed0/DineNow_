@@ -48,6 +48,4 @@ export interface CreateOrderCommand {
 }
 
 export type OrderApiResponse = ApiResponse<OrderApiDto>;
-export type OrderApiListResponse = ApiResponse<OrderApiDto[]>;
 export type OrderResponse = ApiResponse<Order>;
-export type OrderListResponse = ApiResponse<Order[]>;

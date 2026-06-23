@@ -186,7 +186,7 @@ const MyReservations = () => {
 
   // Cancel reservation
   const handleCancel = async () => {
-    if (!reservationToCancel) return;
+    if (reservationToCancel == null) return;
     
     setIsCancelling(true);
     try {

@@ -19,9 +19,7 @@ import EmailConfirmation from '../Components/emailconfirmation/EmailConfirmation
 import NotFound from '../Components/not-found/NotFound';
 import About from '../Components/about/About';
 import Spots from '../Components/spots/Spots';
-// import RestaurantList from '../Components/restaurants/RestaurantList';
 import RestaurantDetails from '../Components/restaurants/RestaurantDetails';
-// import RestaurantAdmin from '../Components/restaurants/RestaurantAdmin';
 import StaffReservations from '../Components/admin/StaffReservations';
 import MyReservations from '../Components/myreservations/MyReservations';
 import Favorites from '../Components/favorites/Favorites';
@@ -81,21 +79,11 @@ export default function AppRoutes() {
           } />
           <Route path={APP_ROUTES.about} element={<About />} />
           <Route path={APP_ROUTES.spots} element={<Spots />} />
-          {/* <Route path={APP_ROUTES.restaurants} element={
-            <ProtectedRoute>
-              <RestaurantList />
-            </ProtectedRoute>
-          } /> */}
           <Route path={APP_ROUTES.restaurantDetails} element={
             <ProtectedRoute>
               <RestaurantDetails />
             </ProtectedRoute>
           } />
-          {/* <Route path={APP_ROUTES.restaurantAdmin} element={
-            <ProtectedRoute>
-              <RestaurantAdmin />
-            </ProtectedRoute>
-          } /> */}
           <Route path={APP_ROUTES.staffReservations} element={
             <ProtectedRoute>
               <RoleRoute allowedRoles={[...USER_ROLES.staff, ...USER_ROLES.manager]}>
@@ -124,9 +112,6 @@ export default function AppRoutes() {
               </RoleRoute>
             </ProtectedRoute>
           } />
-          {/* <Route path={APP_ROUTES.search} element={<Search />} /> */}
-          {/* <Route path={APP_ROUTES.reserve} element={<Reserve />} /> */}
-          {/* <Route path={APP_ROUTES.reservationConfirmed} element={<ReservationConfirmed />} /> */}
           <Route path={APP_ROUTES.myReservations} element={
             <ProtectedRoute>
               <MyReservations />

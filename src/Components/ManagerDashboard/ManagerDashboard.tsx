@@ -17,6 +17,7 @@ import {
   FaClipboardList,
   FaPlus,
   FaSave,
+  FaImage,
 } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRestaurantById } from '../../services/restaurant';
@@ -110,10 +111,15 @@ export default function ManagerDashboard() {
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
   const [newMenuItem, setNewMenuItem] = useState<
-    Record<number, { name: string; description: string; price: string }>
+    Record<number, { name: string; description: string; price: string; image: File | null }>
   >({});
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
-  const [editItem, setEditItem] = useState({ name: '', description: '', price: '' });
+  const [editItem, setEditItem] = useState<{ name: string; description: string; price: string; image: File | null }>({
+    name: '',
+    description: '',
+    price: '',
+    image: null,
+  });
 
   const pushToast = (text: string, type: 'success' | 'error' = 'success') => {
     if (type === 'error') console.error(text);
@@ -375,7 +381,7 @@ export default function ManagerDashboard() {
 
   const handleAddMenuItem = async (e: React.FormEvent, categoryId: number) => {
     e.preventDefault();
-    const draft = newMenuItem[categoryId] ?? { name: '', description: '', price: '' };
+    const draft = newMenuItem[categoryId] ?? { name: '', description: '', price: '', image: null };
     const price = Number(draft.price);
     if (!draft.name.trim() || !price || price <= 0) {
       pushToast('Enter item name and a valid price', 'error');
@@ -388,10 +394,11 @@ export default function ManagerDashboard() {
         description: draft.description.trim(),
         price,
         categoryId,
+        image: draft.image,
       });
       if (!response.succeeded) throw new Error(response.message || 'Failed to add item');
       pushToast(`"${draft.name.trim()}" added`);
-      setNewMenuItem((prev) => ({ ...prev, [categoryId]: { name: '', description: '', price: '' } }));
+      setNewMenuItem((prev) => ({ ...prev, [categoryId]: { name: '', description: '', price: '', image: null } }));
       await fetchMenu(restaurantId);
     } catch (err) {
       pushToast(err instanceof Error ? err.message : 'Failed to add item', 'error');
@@ -412,11 +419,12 @@ export default function ManagerDashboard() {
         name: editItem.name.trim(),
         description: editItem.description.trim(),
         price,
+        image: editItem.image,
       });
       if (!response.succeeded) throw new Error(response.message || 'Update failed');
       pushToast('Item updated');
       setEditingItemId(null);
-      setEditItem({ name: '', description: '', price: '' });
+      setEditItem({ name: '', description: '', price: '', image: null });
       await fetchMenu(restaurantId);
     } catch (err) {
       pushToast(err instanceof Error ? err.message : 'Failed to update item', 'error');
@@ -927,6 +935,19 @@ export default function ManagerDashboard() {
                                 placeholder="Price"
                                 className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#6B8A62]"
                               />
+                              {(editItem.image || item.imageUrl) && (
+                                <img
+                                  src={editItem.image ? URL.createObjectURL(editItem.image) : item.imageUrl!}
+                                  alt={item.name}
+                                  className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                                />
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => setEditItem({ ...editItem, image: e.target.files?.[0] ?? null })}
+                                className="w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:bg-[#6B8A62]/10 file:text-[#6B8A62] file:font-medium hover:file:bg-[#6B8A62]/20"
+                              />
                               <div className="flex gap-2">
                                 <button
                                   type="button"
@@ -946,12 +967,21 @@ export default function ManagerDashboard() {
                             </div>
                           ) : (
                             <div className="flex justify-between items-start gap-2">
-                              <div>
-                                <p className="font-semibold text-gray-900">{item.name}</p>
-                                {item.description && (
-                                  <p className="text-sm text-gray-500">{item.description}</p>
-                                )}
-                                <p className="text-sm font-medium text-[#6B8A62] mt-1">${item.price.toFixed(2)}</p>
+                              <div className="flex gap-3 flex-1">
+                                <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                  {item.imageUrl ? (
+                                    <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <FaImage className="text-gray-300" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-gray-900">{item.name}</p>
+                                  {item.description && (
+                                    <p className="text-sm text-gray-500">{item.description}</p>
+                                  )}
+                                  <p className="text-sm font-medium text-[#6B8A62] mt-1">${item.price.toFixed(2)}</p>
+                                </div>
                               </div>
                               <div className="flex gap-1 shrink-0">
                                 <button
@@ -962,6 +992,7 @@ export default function ManagerDashboard() {
                                       name: item.name,
                                       description: item.description,
                                       price: String(item.price),
+                                      image: null,
                                     });
                                   }}
                                   className="text-[#6B8A62] hover:bg-[#6B8A62]/10 p-2 rounded-lg"
@@ -987,7 +1018,7 @@ export default function ManagerDashboard() {
 
                   <form
                     onSubmit={(e) => handleAddMenuItem(e, cat.id)}
-                    className="border-t border-gray-100 pt-4 grid sm:grid-cols-4 gap-2 items-end"
+                    className="border-t border-gray-100 pt-4 grid sm:grid-cols-5 gap-2 items-end"
                   >
                     <div className="sm:col-span-2">
                       <label className="block text-xs text-gray-500 mb-1">Item name</label>
@@ -997,7 +1028,7 @@ export default function ManagerDashboard() {
                         onChange={(e) =>
                           setNewMenuItem((prev) => ({
                             ...prev,
-                            [cat.id]: { ...(prev[cat.id] ?? { name: '', description: '', price: '' }), name: e.target.value },
+                            [cat.id]: { ...(prev[cat.id] ?? { name: '', description: '', price: '', image: null }), name: e.target.value },
                           }))
                         }
                         className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#6B8A62]"
@@ -1012,10 +1043,27 @@ export default function ManagerDashboard() {
                         onChange={(e) =>
                           setNewMenuItem((prev) => ({
                             ...prev,
-                            [cat.id]: { ...(prev[cat.id] ?? { name: '', description: '', price: '' }), description: e.target.value },
+                            [cat.id]: { ...(prev[cat.id] ?? { name: '', description: '', price: '', image: null }), description: e.target.value },
                           }))
                         }
                         className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#6B8A62]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Image</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) =>
+                          setNewMenuItem((prev) => ({
+                            ...prev,
+                            [cat.id]: {
+                              ...(prev[cat.id] ?? { name: '', description: '', price: '', image: null }),
+                              image: e.target.files?.[0] ?? null,
+                            },
+                          }))
+                        }
+                        className="w-full text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-2 file:rounded-lg file:border-0 file:bg-[#6B8A62]/10 file:text-[#6B8A62] file:font-medium hover:file:bg-[#6B8A62]/20"
                       />
                     </div>
                     <div className="flex gap-2">
@@ -1026,7 +1074,7 @@ export default function ManagerDashboard() {
                         onChange={(e) =>
                           setNewMenuItem((prev) => ({
                             ...prev,
-                            [cat.id]: { ...(prev[cat.id] ?? { name: '', description: '', price: '' }), price: e.target.value },
+                            [cat.id]: { ...(prev[cat.id] ?? { name: '', description: '', price: '', image: null }), price: e.target.value },
                           }))
                         }
                         placeholder="Price"

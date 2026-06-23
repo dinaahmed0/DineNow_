@@ -25,10 +25,6 @@ export async function getTables(filters?: {
   return apiGet<TableListResponse>(`${API.table.list}${qs}`);
 }
 
-export async function getTableByNumber(tableNum: number): Promise<TableResponse> {
-  return apiGet<TableResponse>(API.table.byNumber(tableNum));
-}
-
 export async function createTable(command: CreateTableCommand): Promise<TableResponse> {
   return apiPost<TableResponse>(API.table.create, command);
 }

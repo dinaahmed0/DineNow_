@@ -30,6 +30,7 @@ export interface AddMenuItemCommand {
   description: string;
   price: number;
   categoryId: number;
+  image?: File | null;
 }
 
 export interface UpdateMenuItemCommand {
@@ -37,6 +38,7 @@ export interface UpdateMenuItemCommand {
   name?: string;
   description?: string;
   price?: number;
+  image?: File | null;
 }
 
 export type CategoryListResponse = ApiResponse<MenuCategory[]>;

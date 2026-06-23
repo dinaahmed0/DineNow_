@@ -18,6 +18,7 @@ import {
   FaEnvelope,
   FaClock,
   FaMapMarkerAlt,
+  FaImage,
 } from 'react-icons/fa';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -25,7 +26,7 @@ import { apiGet, apiPatch, apiPost } from '../../services/api/client';
 import { API } from '../../constants/api';
 import { deleteRestaurant } from '../../services/restaurant';
 import { unwrapApiResponse } from '../../lib/api-helpers';
-import type { RestaurantApiDto, CreateRestaurantApiCommand, UpdateRestaurantApiCommand } from '../../types/restaurant';
+import type { RestaurantApiDto } from '../../types/restaurant';
 import type { ApiResponse } from '../../types/common';
 import type { PaginationData } from '../../types/reservation';
 import DashboardShell from '../dashboard/DashboardShell';
@@ -114,13 +115,13 @@ function RestaurantCard({
             </div>
           </div>
           <div className="flex gap-1">
-            <button
+            {/* <button
               onClick={() => onView(restaurant)}
               className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition"
               title="View Details"
             >
               <FaEye className="w-4 h-4" />
-            </button>
+            </button> */}
             <button
               onClick={() => onEdit(restaurant)}
               className="p-2 rounded-lg text-amber-600 hover:bg-amber-50 transition"
@@ -264,6 +265,7 @@ export default function SuperAdmin() {
   const [modal, setModal] = useState<'add' | 'edit' | 'delete' | 'view' | null>(null);
   const [selected, setSelected] = useState<RestaurantApiDto | null>(null);
   const [form, setForm] = useState<RestaurantForm>(emptyForm());
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
@@ -315,6 +317,7 @@ export default function SuperAdmin() {
 
   const openAdd = () => {
     setForm(emptyForm());
+    setImageFile(null);
     setSelected(null);
     setModal('add');
   };
@@ -329,6 +332,7 @@ export default function SuperAdmin() {
       ownerEmail: '',
       isActive: r.isActive,
     });
+    setImageFile(null);
     setModal('edit');
   };
 
@@ -350,14 +354,16 @@ export default function SuperAdmin() {
     }
     setSubmitting(true);
     try {
-      const body: CreateRestaurantApiCommand = {
-        ownerEmail: form.ownerEmail,
-        name: form.name,
-        address: form.address,
-        phone: form.phone,
-        isActive: form.isActive,
-        openingHours: form.openingHours || '9:00 AM - 10:00 PM',
-      };
+      // The backend only accepts multipart/form-data for this endpoint (it also
+      // takes an optional Image file) — a JSON body 404s.
+      const body = new FormData();
+      body.append('OwnerEmail', form.ownerEmail);
+      body.append('Name', form.name);
+      body.append('Address', form.address);
+      body.append('Phone', form.phone);
+      body.append('IsActive', String(form.isActive));
+      body.append('OpeningHours', form.openingHours || '9:00 AM - 10:00 PM');
+      if (imageFile) body.append('Image', imageFile);
       const response = await apiPost<ApiResponse<RestaurantApiDto>>(API.restaurant.create, body);
       unwrapApiResponse(response);
       pushToast('Restaurant created successfully');
@@ -375,13 +381,14 @@ export default function SuperAdmin() {
     if (!selected) return;
     setSubmitting(true);
     try {
-      const body: UpdateRestaurantApiCommand = {
-        restaurantId: selected.id,
-        isActive: form.isActive,
-      };
-      if (form.address.trim()) body.address = form.address.trim();
-      if (form.phone.trim()) body.phone = form.phone.trim();
-      if (form.openingHours.trim()) body.openingHours = form.openingHours.trim();
+      // Same as handleAdd — this endpoint is multipart/form-data only (field name is "Id", not "restaurantId").
+      const body = new FormData();
+      body.append('Id', String(selected.id));
+      body.append('IsActive', String(form.isActive));
+      if (form.address.trim()) body.append('Address', form.address.trim());
+      if (form.phone.trim()) body.append('Phone', form.phone.trim());
+      if (form.openingHours.trim()) body.append('OpeningHours', form.openingHours.trim());
+      if (imageFile) body.append('Image', imageFile);
       const response = await apiPatch<ApiResponse<RestaurantApiDto>>(API.restaurant.update, body);
       unwrapApiResponse(response);
       pushToast('Restaurant updated successfully');
@@ -756,6 +763,35 @@ export default function SuperAdmin() {
                   placeholder={modal === 'edit' ? 'Leave blank to keep current hours' : '9:00 AM - 10:00 PM'}
                   icon={FaClock}
                 />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <FaImage className="inline w-4 h-4 text-gray-400 mr-1.5" />
+                    Restaurant Image
+                  </label>
+                  {modal === 'edit' && selected?.imageUrl && !imageFile && (
+                    <img
+                      src={selected.imageUrl}
+                      alt={selected.name}
+                      className="w-full h-32 object-cover rounded-xl mb-2 border border-gray-200"
+                    />
+                  )}
+                  {imageFile && (
+                    <img
+                      src={URL.createObjectURL(imageFile)}
+                      alt="Selected preview"
+                      className="w-full h-32 object-cover rounded-xl mb-2 border border-gray-200"
+                    />
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                    className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[#6B8A62]/10 file:text-[#6B8A62] file:font-medium hover:file:bg-[#6B8A62]/20"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    {modal === 'edit' ? 'Leave blank to keep the current image' : 'Optional'}
+                  </p>
+                </div>
                 <label className="flex items-center justify-between p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition">
                   <div>
                     <span className="text-sm font-medium text-gray-700">Restaurant Active</span>

@@ -1,23 +1,17 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from './api/client';
+import { apiGet, apiDelete } from './api/client';
 import { API } from '../constants/api';
 import { buildQueryString, unwrapApiResponse } from '../lib/api-helpers';
 import { reviewService } from './reviewService';
 import type {
-  AddRestaurantCommand,
   AddReviewCommand,
-  CreateRestaurantApiCommand,
-  GetReviewQueryPagination,
   RestaurantApiDto,
   RestaurantListApiResponse,
   RestaurantApiResponse,
   ReturnRestaurantQuery,
   ReturnRestaurantQueryPagination,
-  UpdateRestaurantApiCommand,
-  UpdateRestaurantCommand,
 } from '../types/restaurant';
 import type { ApiResponse } from '../types/common';
 import type { PaginationData } from '../types/reservation';
-import type { ReviewsListResponse } from './reviewService';
 
 function mapRestaurantDtoToView(
   dto: RestaurantApiDto,
@@ -59,35 +53,6 @@ function mapRestaurantPage(
   };
 }
 
-function mapReviewsResponse(response: ReviewsListResponse): GetReviewQueryPagination {
-  const reviews = response.data?.data ?? [];
-  const averageRating =
-    reviews.length > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-      : 0;
-
-  return {
-    reviews: reviews.map((r) => ({
-      id: r.id,
-      restaurantId: 0,
-      userId: 0,
-      userName: r.userName,
-      rating: r.rating,
-      comment: r.comment,
-      createdAt: '',
-    })),
-    totalCount: response.data?.count ?? reviews.length,
-    // get-reviews echoes back the 1-based PageIndex we sent (see reviewService.getReviews) — no further +1 needed.
-    currentPage: response.data?.pageIndex ?? 1,
-    pageSize: response.data?.pageSize ?? reviews.length,
-    totalPages: Math.max(
-      1,
-      Math.ceil((response.data?.count ?? 0) / Math.max(response.data?.pageSize ?? 1, 1))
-    ),
-    averageRating,
-  };
-}
-
 /** @param page 1-based page number for UI */
 export async function getAllRestaurants(
   page = 1,
@@ -113,48 +78,6 @@ export async function getRestaurantById(id: number): Promise<ReturnRestaurantQue
   return mapRestaurantDtoToView(dto);
 }
 
-export async function addRestaurant(
-  restaurantData: AddRestaurantCommand,
-  ownerEmail: string
-): Promise<ReturnRestaurantQuery> {
-  const body: CreateRestaurantApiCommand = {
-    ownerEmail,
-    name: restaurantData.name,
-    address: restaurantData.address,
-    phone: restaurantData.phone,
-    isActive: true,
-    openingHours: restaurantData.hours,
-  };
-  const response = await apiPost<RestaurantApiResponse>(API.restaurant.create, body);
-  const dto = unwrapApiResponse(response);
-  return mapRestaurantDtoToView(dto, {
-    description: restaurantData.description,
-    cuisine: restaurantData.cuisine,
-    email: restaurantData.email,
-    website: restaurantData.website,
-    priceRange: restaurantData.priceRange,
-    location: restaurantData.location,
-    hours: restaurantData.hours,
-    features: restaurantData.features,
-    image: restaurantData.image,
-  });
-}
-
-export async function updateRestaurant(
-  restaurantData: UpdateRestaurantCommand
-): Promise<ReturnRestaurantQuery> {
-  const body: UpdateRestaurantApiCommand = {
-    restaurantId: restaurantData.id,
-    address: restaurantData.address ?? '',
-    phone: restaurantData.phone ?? '',
-    isActive: restaurantData.isActive ?? true,
-    openingHours: restaurantData.hours ?? '',
-  };
-  const response = await apiPatch<RestaurantApiResponse>(API.restaurant.update, body);
-  const dto = unwrapApiResponse(response);
-  return mapRestaurantDtoToView(dto, restaurantData);
-}
-
 export async function deleteRestaurant(id: number): Promise<void> {
   const response = await apiDelete<ApiResponse<string>>(API.restaurant.delete(id));
   unwrapApiResponse(response);
@@ -167,20 +90,4 @@ export async function addReview(reviewData: AddReviewCommand) {
     reviewData.comment
   );
   return unwrapApiResponse(response);
-}
-
-export async function getRestaurantReviews(
-  restaurantId: number,
-  page = 1,
-  pageSize = 10
-): Promise<GetReviewQueryPagination> {
-  const response = await reviewService.getReviews({
-    pageIndex: Math.max(0, page - 1),
-    pageSize,
-    restaurantId,
-  });
-  if (!response.succeeded) {
-    throw new Error(response.message || 'Failed to load reviews');
-  }
-  return mapReviewsResponse(response);
 }
